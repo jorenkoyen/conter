@@ -1,0 +1,42 @@
+run:
+  timeout: 1m
+  tests: false
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - gosimple
+    - ineffassign
+    - staticcheck
+    - unused
+    - asasalint
+    - asciicheck
+    - bodyclose
+    - bidichk
+    - copyloopvar
+    - durationcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - gofmt
+    - goprintffuncname
+    - noctx
+    - nonamedreturns
+    - prealloc
+    - predeclared
+    - reassign
+    - rowserrcheck
+    - unconvert
+    - cyclop
+    - errchkjson
+    - copyloopvar
+    - gocheckcompilerdirectives
+    - gocritic
+    - goprintffuncname
+    - nilerr
+    - nilnil
+    - paralleltest
+    - prealloc
+    - perfsprint
+    - tenv
