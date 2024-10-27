@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/jorenkoyen/conter/version"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/jorenkoyen/conter/manager"
@@ -52,6 +54,9 @@ func run(ctx context.Context, args []string) error {
 	// create HTTP server
 	srv := server.NewServer(opts.HTTP.ManagementAddress)
 	srv.Orchestrator = orchestrator
+
+	// start application
+	log.Infof("Starting conter @ version=%s [ go=%s arch=%s ]", version.Version, version.GoVersion, runtime.GOARCH)
 	if err := srv.Listen(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
