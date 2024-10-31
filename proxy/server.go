@@ -30,6 +30,11 @@ func NewServer() *Server {
 	}
 }
 
+// SetLogLevel overrides the log level for the reverse proxy logger.
+func (s *Server) SetLogLevel(l logger.Level) {
+	s.logger.SetLogLevel(l)
+}
+
 // ServeHTTP will route the HTTP request through to the desired proxy.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	route, err := s.Ingress.Match(r.Host)

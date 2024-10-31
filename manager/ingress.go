@@ -31,14 +31,28 @@ type RegisterRouteOptions struct {
 func (i *Ingress) RegisterRoute(ctx context.Context, domain string, endpoint string, opts RegisterRouteOptions) error {
 	i.logger.Debugf("Registering route for domain=%s (endpoint=%s, challenge_type=%s)", domain, endpoint, opts.Challenge)
 
-	// TODO: check if we already have a registered route
+	// check if we already have a registered route
 	//	-> update endpoint (if required)
-	// 	-> check if project & service are correct
+	// 	-> check if project is correct
+	route, err := i.Match(domain)
+	if err == nil {
+		if route.Endpoint == endpoint {
+			// no action required, correct endpoint already assigned
+			i.logger.Debugf("No action required for registering route for %s, endpoint is already correct", domain)
+			return nil
+		}
+		if route.Project != opts.Project {
+			return fmt.Errorf("domain %s is already in use for project=%s", domain, opts.Project)
+		}
+		if route.Service != opts.Service {
+			i.logger.Warningf("Overwriting domain configuration for service=%s, now pointing to service=%s (domain=%s)", route.Service, opts.Service, domain)
+		}
+	}
 
 	// TODO: create challenge (http01 only for now)
 
 	// register route
-	route := &manifest.IngressRoute{Domain: domain, Endpoint: endpoint, Service: opts.Service, Project: opts.Project}
+	route = &manifest.IngressRoute{Domain: domain, Endpoint: endpoint, Service: opts.Service, Project: opts.Project}
 	return i.Database.SaveIngressRoute(route)
 }
 

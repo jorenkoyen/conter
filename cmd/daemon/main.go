@@ -60,6 +60,7 @@ func run(ctx context.Context, args []string) error {
 	// create proxy
 	rp := proxy.NewServer()
 	rp.Ingress = ingress
+	rp.SetLogLevel(logger.LevelInfo)
 
 	// start HTTP proxy
 	go func() {
