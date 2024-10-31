@@ -102,7 +102,6 @@ func (c *Client) GetIngressRoute(domain string) (*manifest.IngressRoute, error) 
 			return ErrItemNotFound
 		}
 
-		c.logger.Tracef("Retrieving ingress route for domain=%s", domain)
 		return json.Unmarshal(content, route)
 	})
 	return route, err

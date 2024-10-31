@@ -132,6 +132,8 @@ func (o *Orchestrator) applyService(ctx context.Context, service manifest.Servic
 				return nil, fmt.Errorf("failed to start container: %w", err)
 			}
 
+			// inspect again -> required to now deployed port
+			container = o.Docker.FindContainer(ctx, container.ID)
 			return container, nil
 		} else {
 			o.logger.Debugf("Container already exists for service=%s", service.Name)

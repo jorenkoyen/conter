@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/jorenkoyen/conter/proxy"
 	"github.com/jorenkoyen/conter/version"
 	"net/http"
 	"os"
@@ -55,6 +56,20 @@ func run(ctx context.Context, args []string) error {
 	orchestrator.Database = database
 	orchestrator.Docker = dckr
 	orchestrator.Ingress = ingress
+
+	// create proxy
+	rp := proxy.NewServer()
+	rp.Ingress = ingress
+
+	// start HTTP proxy
+	go func() {
+		err := rp.ListenForHTTP(ctx)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Failed to start HTTP proxy: %v", err)
+		}
+	}()
+
+	// TODO: start HTTPS proxy
 
 	// create HTTP server
 	srv := server.NewServer(opts.HTTP.ManagementAddress)

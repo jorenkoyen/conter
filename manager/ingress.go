@@ -38,7 +38,7 @@ func (i *Ingress) RegisterRoute(ctx context.Context, domain string, endpoint str
 	// TODO: create challenge (http01 only for now)
 
 	// register route
-	route := &manifest.IngressRoute{Domain: domain, Endpoint: endpoint}
+	route := &manifest.IngressRoute{Domain: domain, Endpoint: endpoint, Service: opts.Service, Project: opts.Project}
 	return i.Database.SaveIngressRoute(route)
 }
 
