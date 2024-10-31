@@ -11,7 +11,9 @@ import (
 )
 
 var (
-	BucketManifest = []byte("manifests")
+	BucketManifest   = []byte("manifests")
+	BucketRoutes     = []byte("routes")
+	BucketChallenges = []byte("challenges")
 
 	ErrItemNotFound = errors.New("item not found")
 )
@@ -69,9 +71,9 @@ func (c *Client) RemoveManifest(name string) error {
 func (c *Client) GetManifestByName(name string) (*manifest.Project, error) {
 	project := new(manifest.Project)
 	err := c.bolt.View(func(tx *bbolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(BucketManifest)
-		if err != nil {
-			return err
+		bucket := tx.Bucket(BucketManifest)
+		if bucket == nil {
+			return ErrItemNotFound
 		}
 
 		content := bucket.Get([]byte(name))
@@ -84,6 +86,75 @@ func (c *Client) GetManifestByName(name string) (*manifest.Project, error) {
 	})
 
 	return project, err
+}
+
+// GetIngressRoute will return the ingress route if it exists.
+func (c *Client) GetIngressRoute(domain string) (*manifest.IngressRoute, error) {
+	route := new(manifest.IngressRoute)
+	err := c.bolt.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketRoutes)
+		if bucket == nil {
+			return ErrItemNotFound
+		}
+
+		content := bucket.Get([]byte(domain))
+		if content == nil {
+			return ErrItemNotFound
+		}
+
+		c.logger.Tracef("Retrieving ingress route for domain=%s", domain)
+		return json.Unmarshal(content, route)
+	})
+	return route, err
+}
+
+func (c *Client) SaveIngressRoute(route *manifest.IngressRoute) error {
+	return c.bolt.Update(func(tx *bbolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists(BucketRoutes)
+		if err != nil {
+			return err
+		}
+
+		content, err := json.Marshal(route)
+		if err != nil {
+			return err
+		}
+
+		c.logger.Tracef("Saving ingress route for domain=%s", route.Domain)
+		return bucket.Put([]byte(route.Domain), content)
+	})
+}
+
+// GetIngressRoutesByProject returns all ingress routes related to the project.
+func (c *Client) GetIngressRoutesByProject(project string) []manifest.IngressRoute {
+	routes := make([]manifest.IngressRoute, 0)
+	_ = c.bolt.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketRoutes)
+		if bucket == nil {
+			return nil
+		}
+
+		return bucket.ForEach(func(domain, content []byte) error {
+			r := new(manifest.IngressRoute)
+			if err := json.Unmarshal(content, r); err == nil && r.Project == project {
+				// append to routes array
+				routes = append(routes, *r)
+			}
+			return nil
+		})
+	})
+	return routes
+}
+
+func (c *Client) RemoveIngressRoute(domain string) error {
+	return c.bolt.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketRoutes)
+		if bucket == nil {
+			return nil
+		}
+
+		return bucket.Delete([]byte(domain))
+	})
 }
 
 // Close will cl

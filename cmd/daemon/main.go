@@ -46,10 +46,15 @@ func run(ctx context.Context, args []string) error {
 	dckr := docker.NewClient()
 	defer dckr.Close()
 
+	// create ingress manager
+	ingress := manager.NewIngressManager()
+	ingress.Database = database
+
 	// create orchestrator
 	orchestrator := manager.NewOrchestrator()
 	orchestrator.Database = database
 	orchestrator.Docker = dckr
+	orchestrator.Ingress = ingress
 
 	// create HTTP server
 	srv := server.NewServer(opts.HTTP.ManagementAddress)
