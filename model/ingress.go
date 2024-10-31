@@ -1,4 +1,12 @@
-package manifest
+package model
+
+// ChallengeType defines the ACME challenge to use when requesting a new SSL certificate.
+type ChallengeType string
+
+const (
+	ChallengeHttp01 ChallengeType = "http01"
+	ChallengeDns01  ChallengeType = "dns01"
+)
 
 // IngressRoute contains all the required details to proxy through a request based on the incoming domain name.
 type IngressRoute struct {

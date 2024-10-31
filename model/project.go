@@ -1,4 +1,4 @@
-package manifest
+package model
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jorenkoyen/go-logger/log"
+	"io"
 )
 
 // Project defines the internal structure of how a project should exist in the system.
@@ -13,6 +14,13 @@ import (
 type Project struct {
 	Name     string    `json:"name"`
 	Services []Service `json:"services"`
+}
+
+// ParseProject will read the incoming data and parse it to a [model.Project].
+func ParseProject(r io.Reader) (*Project, error) {
+	p := new(Project)
+	err := json.NewDecoder(r).Decode(p)
+	return p, err
 }
 
 // Service contains the information on how a service should exist within the system.
@@ -69,11 +77,3 @@ func (s *Service) CalculateConfigurationHash() string {
 func (s *Service) HasIngress() bool {
 	return s.Ingress.Domain != "" && s.Ingress.ContainerPort > 0
 }
-
-// ChallengeType defines the ACME challenge to use when requesting a new SSL certificate.
-type ChallengeType string
-
-const (
-	ChallengeHttp01 ChallengeType = "http01"
-	ChallengeDns01  ChallengeType = "dns01"
-)

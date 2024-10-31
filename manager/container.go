@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/jorenkoyen/conter/manager/db"
 	"github.com/jorenkoyen/conter/manager/docker"
-	"github.com/jorenkoyen/conter/manifest"
+	"github.com/jorenkoyen/conter/model"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 )
@@ -24,30 +24,30 @@ func NewContainerManager() *Container {
 	}
 }
 
-// FindManifest will retrieve the stored manifest from the database if it exists.
-func (o *Container) FindManifest(name string) *manifest.Project {
-	_manifest, err := o.Database.GetManifestByName(name)
+// FindProject will retrieve the stored project from the database if it exists.
+func (o *Container) FindProject(name string) *model.Project {
+	p, err := o.Database.GetProjectByName(name)
 	if err != nil {
 		if !errors.Is(err, db.ErrItemNotFound) {
-			o.logger.Warningf("Failure when trying to retrieve manifest with name=%s: %v", name, err)
+			o.logger.Warningf("Failure when trying to retrieve project with name=%s: %v", name, err)
 		}
 
 		return nil
 	}
-	return _manifest
+	return p
 }
 
-// ApplyManifest will create all the required resources for having the full manifest running.
-func (o *Container) ApplyManifest(ctx context.Context, manifest *manifest.Project) error {
+// ApplyProject will create all the required resources for having the full project running.
+func (o *Container) ApplyProject(ctx context.Context, project *model.Project) error {
 	// create network (if not exists)
-	net, err := o.Docker.CreateNetworkIfNotExists(ctx, manifest.Name)
+	net, err := o.Docker.CreateNetworkIfNotExists(ctx, project.Name)
 	if err != nil {
 		return err
 	}
 
 	// create services
-	routes := make([]string, 0, len(manifest.Services))
-	for _, service := range manifest.Services {
+	routes := make([]string, 0, len(project.Services))
+	for _, service := range project.Services {
 		container, err := o.applyService(ctx, service, net)
 		if err != nil {
 			return fmt.Errorf("failed to create service %s: %w", service.Name, err)
@@ -56,7 +56,7 @@ func (o *Container) ApplyManifest(ctx context.Context, manifest *manifest.Projec
 		// check if we need to register any routes
 		if service.HasIngress() {
 			ing := service.Ingress
-			opts := RegisterRouteOptions{Challenge: ing.SslChallenge, Project: manifest.Name, Service: service.Name}
+			opts := RegisterRouteOptions{Challenge: ing.SslChallenge, Project: project.Name, Service: service.Name}
 			err = o.Ingress.RegisterRoute(ctx, ing.Domain, container.Endpoint, opts)
 			if err != nil {
 				return fmt.Errorf("failed to register ingress route for %s: %w", ing.Domain, err)
@@ -67,39 +67,39 @@ func (o *Container) ApplyManifest(ctx context.Context, manifest *manifest.Projec
 		}
 	}
 
-	// remove unused routes for manifest
-	err = o.Ingress.RemoveUnusedRoutes(manifest.Name, routes)
+	// remove unused routes for project
+	err = o.Ingress.RemoveUnusedRoutes(project.Name, routes)
 	if err != nil {
-		return fmt.Errorf("failed to remove unused routes for %s: %w", manifest.Name, err)
+		return fmt.Errorf("failed to remove unused routes for %s: %w", project.Name, err)
 	}
 
 	// save to database
-	o.logger.Infof("Successfully applied manifest for project=%s", manifest.Name)
-	return o.Database.SaveManifest(manifest)
+	o.logger.Infof("Successfully applied project for project=%s", project.Name)
+	return o.Database.SaveProject(project)
 }
 
-// RemoveManifest will remove the resources associated to the manifest.
-func (o *Container) RemoveManifest(ctx context.Context, manifest *manifest.Project) error {
+// RemoveProject will remove the resources associated to the project.
+func (o *Container) RemoveProject(ctx context.Context, project *model.Project) error {
 	// delete services
-	for _, service := range manifest.Services {
-		err := o.removeService(ctx, service, manifest.Name)
+	for _, service := range project.Services {
+		err := o.removeService(ctx, service, project.Name)
 		if err != nil {
 			return fmt.Errorf("failed to remove service %s: %w", service.Name, err)
 		}
 	}
 
 	// delete network
-	err := o.Docker.DeleteNetwork(ctx, manifest.Name)
+	err := o.Docker.DeleteNetwork(ctx, project.Name)
 	if err != nil {
 		return err
 	}
 
-	o.logger.Infof("Successfully removed manifest for project=%s", manifest.Name)
-	return o.Database.RemoveManifest(manifest.Name)
+	o.logger.Infof("Successfully removed project for project=%s", project.Name)
+	return o.Database.RemoveProject(project.Name)
 }
 
 // removeService will remove the specified service from the system.
-func (o *Container) removeService(ctx context.Context, service manifest.Service, project string) error {
+func (o *Container) removeService(ctx context.Context, service model.Service, project string) error {
 	canonical := fmt.Sprintf("%s_%s", project, service.Name)
 	container := o.Docker.FindContainer(ctx, canonical)
 	if container == nil {
@@ -112,13 +112,13 @@ func (o *Container) removeService(ctx context.Context, service manifest.Service,
 }
 
 // applyService will create or update the service.
-func (o *Container) applyService(ctx context.Context, service manifest.Service, network *docker.Network) (*docker.Container, error) {
+func (o *Container) applyService(ctx context.Context, service model.Service, network *docker.Network) (*docker.Container, error) {
 	// see if we can find an existing container
 	canonical := fmt.Sprintf("%s_%s", network.Name, service.Name)
 	container := o.Docker.FindContainer(ctx, canonical)
 	if container != nil {
 		if container.ConfigHash != service.CalculateConfigurationHash() {
-			o.logger.Warningf("Recycling container with id=%s, configuration differs from manifest", container.ID)
+			o.logger.Warningf("Recycling container with id=%s, configuration differs from service", container.ID)
 
 			err := o.Docker.RemoveContainer(ctx, container.ID)
 			if err != nil {

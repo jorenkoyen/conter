@@ -29,9 +29,9 @@ func NewServer(addr string) *Server {
 	mux.Use(s.LoggerMiddleware())
 
 	// register routes
-	mux.Handle("POST /api/manifests", s.HandleManifestApply)
-	mux.Handle("GET /api/manifests/{name}", s.HandleManifestRetrieve)
-	mux.Handle("DELETE /api/manifests/{name}", s.HandleManifestDelete)
+	mux.Handle("POST /api/projects", s.HandleProjectApply)
+	mux.Handle("GET /api/projects/{name}", s.HandleProjectRetrieve)
+	mux.Handle("DELETE /api/projects/{name}", s.HandleProjectDelete)
 
 	return s
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jorenkoyen/conter/manager/db"
-	"github.com/jorenkoyen/conter/manifest"
+	"github.com/jorenkoyen/conter/model"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 	"slices"
@@ -22,7 +22,7 @@ func NewIngressManager() *IngressManager {
 }
 
 type RegisterRouteOptions struct {
-	Challenge manifest.ChallengeType
+	Challenge model.ChallengeType
 	Project   string
 	Service   string
 }
@@ -52,7 +52,7 @@ func (i *IngressManager) RegisterRoute(ctx context.Context, domain string, endpo
 	// TODO: create challenge (http01 only for now)
 
 	// register route
-	route = &manifest.IngressRoute{Domain: domain, Endpoint: endpoint, Service: opts.Service, Project: opts.Project}
+	route = &model.IngressRoute{Domain: domain, Endpoint: endpoint, Service: opts.Service, Project: opts.Project}
 	return i.Database.SaveIngressRoute(route)
 }
 
@@ -81,6 +81,6 @@ func (i *IngressManager) RemoveAllRoutes(project string) error {
 }
 
 // Match will retrieve the ingress route information for the specified domain.
-func (i *IngressManager) Match(domain string) (*manifest.IngressRoute, error) {
+func (i *IngressManager) Match(domain string) (*model.IngressRoute, error) {
 	return i.Database.GetIngressRoute(domain)
 }
