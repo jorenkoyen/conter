@@ -52,7 +52,7 @@ func run(ctx context.Context, args []string) error {
 	ingress.Database = database
 
 	// create orchestrator
-	orchestrator := manager.NewOrchestrator()
+	orchestrator := manager.NewContainerManager()
 	orchestrator.Database = database
 	orchestrator.Docker = dckr
 	orchestrator.Ingress = ingress

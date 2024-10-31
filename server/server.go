@@ -12,7 +12,7 @@ import (
 type Server struct {
 	logger       *logger.Logger
 	addr         string
-	Orchestrator *manager.Orchestrator
+	Orchestrator *manager.Container
 	handler      http.Handler
 }
 

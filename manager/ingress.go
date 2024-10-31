@@ -10,14 +10,14 @@ import (
 	"slices"
 )
 
-type Ingress struct {
+type IngressManager struct {
 	logger   *logger.Logger
 	Database *db.Client
 }
 
-func NewIngressManager() *Ingress {
-	return &Ingress{
-		logger: log.WithName("ingress"),
+func NewIngressManager() *IngressManager {
+	return &IngressManager{
+		logger: log.WithName("ingress-mgr"),
 	}
 }
 
@@ -28,7 +28,7 @@ type RegisterRouteOptions struct {
 }
 
 // RegisterRoute will register a new ingress route and complete the necessary actions to make it ready for use.
-func (i *Ingress) RegisterRoute(ctx context.Context, domain string, endpoint string, opts RegisterRouteOptions) error {
+func (i *IngressManager) RegisterRoute(ctx context.Context, domain string, endpoint string, opts RegisterRouteOptions) error {
 	i.logger.Debugf("Registering route for domain=%s (endpoint=%s, challenge_type=%s)", domain, endpoint, opts.Challenge)
 
 	// check if we already have a registered route
@@ -57,7 +57,7 @@ func (i *Ingress) RegisterRoute(ctx context.Context, domain string, endpoint str
 }
 
 // RemoveUnusedRoutes will remove all unused routes related to the specified project.
-func (i *Ingress) RemoveUnusedRoutes(project string, excludedDomains []string) error {
+func (i *IngressManager) RemoveUnusedRoutes(project string, excludedDomains []string) error {
 	i.logger.Tracef("Removing unused routes for project=%s (excluded=%s)", project, excludedDomains)
 
 	routes := i.Database.GetIngressRoutesByProject(project)
@@ -76,11 +76,11 @@ func (i *Ingress) RemoveUnusedRoutes(project string, excludedDomains []string) e
 }
 
 // RemoveAllRoutes will remove all routes linked to the specified project.
-func (i *Ingress) RemoveAllRoutes(project string) error {
+func (i *IngressManager) RemoveAllRoutes(project string) error {
 	return i.RemoveUnusedRoutes(project, []string{}) // no excluded domains
 }
 
 // Match will retrieve the ingress route information for the specified domain.
-func (i *Ingress) Match(domain string) (*manifest.IngressRoute, error) {
+func (i *IngressManager) Match(domain string) (*manifest.IngressRoute, error) {
 	return i.Database.GetIngressRoute(domain)
 }

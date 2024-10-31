@@ -20,7 +20,7 @@ const (
 
 type Server struct {
 	logger  *logger.Logger
-	Ingress *manager.Ingress
+	Ingress *manager.IngressManager
 	// TODO: challenge manager
 }
 

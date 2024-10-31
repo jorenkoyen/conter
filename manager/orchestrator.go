@@ -11,21 +11,21 @@ import (
 	"github.com/jorenkoyen/go-logger/log"
 )
 
-type Orchestrator struct {
+type Container struct {
 	logger   *logger.Logger
 	Database *db.Client
 	Docker   *docker.Client
-	Ingress  *Ingress
+	Ingress  *IngressManager
 }
 
-func NewOrchestrator() *Orchestrator {
-	return &Orchestrator{
-		logger: log.WithName("orchestrator"),
+func NewContainerManager() *Container {
+	return &Container{
+		logger: log.WithName("container-mgr"),
 	}
 }
 
 // FindManifest will retrieve the stored manifest from the database if it exists.
-func (o *Orchestrator) FindManifest(name string) *manifest.Project {
+func (o *Container) FindManifest(name string) *manifest.Project {
 	_manifest, err := o.Database.GetManifestByName(name)
 	if err != nil {
 		if !errors.Is(err, db.ErrItemNotFound) {
@@ -38,7 +38,7 @@ func (o *Orchestrator) FindManifest(name string) *manifest.Project {
 }
 
 // ApplyManifest will create all the required resources for having the full manifest running.
-func (o *Orchestrator) ApplyManifest(ctx context.Context, manifest *manifest.Project) error {
+func (o *Container) ApplyManifest(ctx context.Context, manifest *manifest.Project) error {
 	// create network (if not exists)
 	net, err := o.Docker.CreateNetworkIfNotExists(ctx, manifest.Name)
 	if err != nil {
@@ -79,7 +79,7 @@ func (o *Orchestrator) ApplyManifest(ctx context.Context, manifest *manifest.Pro
 }
 
 // RemoveManifest will remove the resources associated to the manifest.
-func (o *Orchestrator) RemoveManifest(ctx context.Context, manifest *manifest.Project) error {
+func (o *Container) RemoveManifest(ctx context.Context, manifest *manifest.Project) error {
 	// delete services
 	for _, service := range manifest.Services {
 		err := o.removeService(ctx, service, manifest.Name)
@@ -99,7 +99,7 @@ func (o *Orchestrator) RemoveManifest(ctx context.Context, manifest *manifest.Pr
 }
 
 // removeService will remove the specified service from the system.
-func (o *Orchestrator) removeService(ctx context.Context, service manifest.Service, project string) error {
+func (o *Container) removeService(ctx context.Context, service manifest.Service, project string) error {
 	canonical := fmt.Sprintf("%s_%s", project, service.Name)
 	container := o.Docker.FindContainer(ctx, canonical)
 	if container == nil {
@@ -112,7 +112,7 @@ func (o *Orchestrator) removeService(ctx context.Context, service manifest.Servi
 }
 
 // applyService will create or update the service.
-func (o *Orchestrator) applyService(ctx context.Context, service manifest.Service, network *docker.Network) (*docker.Container, error) {
+func (o *Container) applyService(ctx context.Context, service manifest.Service, network *docker.Network) (*docker.Container, error) {
 	// see if we can find an existing container
 	canonical := fmt.Sprintf("%s_%s", network.Name, service.Name)
 	container := o.Docker.FindContainer(ctx, canonical)

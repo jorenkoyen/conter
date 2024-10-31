@@ -12,7 +12,7 @@ const (
 )
 
 // getDockerImageFromSource will extract the docker image required for the service based on the configured source.
-func (o *Orchestrator) getDockerImageFromSource(ctx context.Context, service manifest.Service) (string, error) {
+func (o *Container) getDockerImageFromSource(ctx context.Context, service manifest.Service) (string, error) {
 	// TODO: add support for GIT source
 
 	if service.Source.Type == SourceDocker {
