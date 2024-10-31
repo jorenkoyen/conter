@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	BucketManifest   = []byte("manifests")
+	BucketProjects   = []byte("projects")
 	BucketRoutes     = []byte("routes")
 	BucketChallenges = []byte("challenges")
 
@@ -36,42 +36,42 @@ func NewClient(path string) *Client {
 	return &Client{logger: l, bolt: db}
 }
 
-// SaveProject will persist the manifest in the database.
-func (c *Client) SaveProject(manifest *model.Project) error {
+// SaveProject will persist the project in the database.
+func (c *Client) SaveProject(project *model.Project) error {
 	return c.bolt.Update(func(tx *bbolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(BucketManifest)
+		bucket, err := tx.CreateBucketIfNotExists(BucketProjects)
 		if err != nil {
 			return err
 		}
 
-		content, err := json.Marshal(manifest)
+		content, err := json.Marshal(project)
 		if err != nil {
 			return err
 		}
 
-		c.logger.Tracef("Saving manifest with name=%s", manifest.Name)
-		return bucket.Put([]byte(manifest.Name), content)
+		c.logger.Tracef("Saving project with name=%s", project.Name)
+		return bucket.Put([]byte(project.Name), content)
 	})
 }
 
-// RemoveProject will remove the manifest from the database.
+// RemoveProject will remove the project from the database.
 func (c *Client) RemoveProject(name string) error {
 	return c.bolt.Update(func(tx *bbolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(BucketManifest)
+		bucket, err := tx.CreateBucketIfNotExists(BucketProjects)
 		if err != nil {
 			return err
 		}
 
-		c.logger.Tracef("Removing manifest with name=%s", name)
+		c.logger.Tracef("Removing project with name=%s", name)
 		return bucket.Delete([]byte(name))
 	})
 }
 
-// GetProjectByName will return the manifest with the matching name if present.
+// GetProjectByName will return the project with the matching name if present.
 func (c *Client) GetProjectByName(name string) (*model.Project, error) {
 	project := new(model.Project)
 	err := c.bolt.View(func(tx *bbolt.Tx) error {
-		bucket := tx.Bucket(BucketManifest)
+		bucket := tx.Bucket(BucketProjects)
 		if bucket == nil {
 			return ErrItemNotFound
 		}
@@ -81,7 +81,7 @@ func (c *Client) GetProjectByName(name string) (*model.Project, error) {
 			return ErrItemNotFound
 		}
 
-		c.logger.Tracef("Retrieving manifest with name=%s", name)
+		c.logger.Tracef("Retrieving project with name=%s", name)
 		return json.Unmarshal(content, project)
 	})
 
