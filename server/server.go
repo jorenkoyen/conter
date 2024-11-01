@@ -50,6 +50,6 @@ func (s *Server) Listen(ctx context.Context) error {
 	}()
 
 	// create HTTP server
-	s.logger.Infof("Starting management server on address=%s", s.addr)
+	s.logger.Debugf("Starting management server on address=%s", s.addr)
 	return server.ListenAndServe()
 }

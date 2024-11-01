@@ -3,6 +3,7 @@ package db
 import (
 	"encoding/json"
 	"errors"
+	"github.com/jorenkoyen/conter/manager/types"
 
 	"github.com/jorenkoyen/conter/model"
 	"github.com/jorenkoyen/go-logger"
@@ -11,9 +12,8 @@ import (
 )
 
 var (
-	BucketProjects   = []byte("projects")
-	BucketRoutes     = []byte("routes")
-	BucketChallenges = []byte("challenges")
+	BucketProjects = []byte("projects")
+	BucketRoutes   = []byte("routes")
 
 	ErrItemNotFound = errors.New("item not found")
 )
@@ -37,20 +37,20 @@ func NewClient(path string) *Client {
 }
 
 // SaveProject will persist the project in the database.
-func (c *Client) SaveProject(project *model.Project) error {
+func (c *Client) SaveProject(project string, services []types.Service) error {
 	return c.bolt.Update(func(tx *bbolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists(BucketProjects)
 		if err != nil {
 			return err
 		}
 
-		content, err := json.Marshal(project)
+		content, err := json.Marshal(services)
 		if err != nil {
 			return err
 		}
 
-		c.logger.Tracef("Saving project with name=%s", project.Name)
-		return bucket.Put([]byte(project.Name), content)
+		c.logger.Tracef("Saving project with name=%s (services=%d)", project, len(services))
+		return bucket.Put([]byte(project), content)
 	})
 }
 
@@ -67,25 +67,24 @@ func (c *Client) RemoveProject(name string) error {
 	})
 }
 
-// GetProjectByName will return the project with the matching name if present.
-func (c *Client) GetProjectByName(name string) (*model.Project, error) {
-	project := new(model.Project)
-	err := c.bolt.View(func(tx *bbolt.Tx) error {
+// GetServicesForProject will return the services associated for the project.
+// If no services are available or the project does not exist it will return nil.
+func (c *Client) GetServicesForProject(project string) []types.Service {
+	var services []types.Service
+	_ = c.bolt.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(BucketProjects)
 		if bucket == nil {
 			return ErrItemNotFound
 		}
 
-		content := bucket.Get([]byte(name))
+		content := bucket.Get([]byte(project))
 		if content == nil {
 			return ErrItemNotFound
 		}
 
-		c.logger.Tracef("Retrieving project with name=%s", name)
-		return json.Unmarshal(content, project)
+		return json.Unmarshal(content, &services)
 	})
-
-	return project, err
+	return services
 }
 
 // GetIngressRoute will return the ingress route if it exists.

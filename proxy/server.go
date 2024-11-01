@@ -92,6 +92,6 @@ func (s *Server) ListenForHTTP(ctx context.Context) error {
 	}()
 
 	// create HTTP server
-	s.logger.Infof("Starting HTTP proxy on address=%s", AddressHTTP)
+	s.logger.Debugf("Starting HTTP proxy on address=%s", AddressHTTP)
 	return server.ListenAndServe()
 }

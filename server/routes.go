@@ -1,10 +1,11 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
+	"github.com/jorenkoyen/conter/manager"
+	"github.com/karlseguin/jsonwriter"
 	"net/http"
-
-	"github.com/jorenkoyen/conter/model"
 )
 
 func (s *Server) HandleProjectApply(w http.ResponseWriter, r *http.Request) error {
@@ -12,35 +13,55 @@ func (s *Server) HandleProjectApply(w http.ResponseWriter, r *http.Request) erro
 		return errors.New("invalid content type")
 	}
 
-	project, err := model.ParseProject(r.Body)
-	if err != nil {
-		s.logger.Warning("Unable to parse project file")
+	decoder := json.NewDecoder(r.Body)
+	defer r.Body.Close()
+
+	opts := new(manager.ApplyProjectOptions)
+	if err := decoder.Decode(opts); err != nil {
 		return err
 	}
 
-	err = s.ContainerManager.ApplyProject(r.Context(), project)
+	applied, err := s.ContainerManager.ApplyProject(r.Context(), opts)
 	if err != nil {
-		s.logger.Warningf("Failed to apply configuration for project=%s: %v", project.Name, err)
+		s.logger.Warningf("Failed to apply configuration for project=%s: %v", opts.ProjectName, err)
 		return err
 	}
 
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusCreated)
-	// TODO: response writing
+	writer := jsonwriter.New(w)
+	writer.RootObject(func() {
+		writer.KeyString("project", opts.ProjectName)
+		writer.Array("services", func() {
+			for _, service := range applied {
+				writer.ArrayObject(func() {
+					writer.KeyString("name", service.Name)
+					writer.KeyString("hash", service.Hash)
+
+					if service.Ingress.Domain != "" {
+						writer.Object("ingress", func() {
+							writer.KeyString("domain", service.Ingress.Domain)
+							writer.KeyString("internal", service.Ingress.TargetEndpoint)
+							writer.KeyString("challenge", string(service.Ingress.ChallengeType))
+						})
+					}
+				})
+			}
+		})
+	})
 	return nil
 }
 
 func (s *Server) HandleProjectDelete(w http.ResponseWriter, r *http.Request) error {
 	name := r.PathValue("name")
-	project := s.ContainerManager.FindProject(name)
-	if project == nil {
+	if !s.ContainerManager.DoesProjectExist(name) {
 		s.logger.Warningf("No project found with name=%s", name)
-		// TODO: not found error
-		return errors.New("project not found")
+		return errors.New("project does not exist")
 	}
 
-	err := s.ContainerManager.RemoveProject(r.Context(), project)
+	err := s.ContainerManager.RemoveProject(r.Context(), name)
 	if err != nil {
-		s.logger.Warningf("Failed to delete configuration for project=%s: %v", project.Name, err)
+		s.logger.Warningf("Failed to delete configuration for project=%s: %v", name, err)
 		return err
 	}
 

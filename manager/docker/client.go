@@ -9,10 +9,11 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/jorenkoyen/conter/model"
+	"github.com/jorenkoyen/conter/manager/types"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 	"io"
+	"slices"
 	"strconv"
 )
 
@@ -91,7 +92,7 @@ func (c *Client) FindContainer(ctx context.Context, name string) *Container {
 
 	// find FIRST exposed port if any
 	var endpoint string
-	for _, bindings := range inspect.NetworkSettings.Ports {
+	for _, bindings := range inspect.HostConfig.PortBindings {
 		if len(bindings) > 0 {
 			// port is exposed
 			binding := bindings[0]
@@ -106,19 +107,18 @@ func (c *Client) FindContainer(ctx context.Context, name string) *Container {
 		State:      inspect.State.Status,
 		ConfigHash: inspect.Config.Labels[LabelHash],
 		Endpoint:   endpoint,
-		// TODO: other configuration options.
 	}
 }
 
 // CreateContainer will create the container based on the service configuration.
-func (c *Client) CreateContainer(ctx context.Context, service model.Service, net *Network, name string, img string) (*Container, error) {
-	err := c.PullImageIfNotExists(ctx, img)
+func (c *Client) CreateContainer(ctx context.Context, service types.Service, net *Network) (*Container, error) {
+	err := c.PullImageIfNotExists(ctx, service.ContainerImage)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
 
 	cfg := &container.Config{
-		Image:    img,
+		Image:    service.ContainerImage,
 		Labels:   GenerateServiceLabels(service),
 		Env:      TransformEnvironment(service.Environment),
 		Hostname: service.Name,
@@ -135,11 +135,6 @@ func (c *Client) CreateContainer(ctx context.Context, service model.Service, net
 	}
 
 	if service.Quota.MemoryLimit > 0 {
-		if service.Quota.MemoryLimit < 128 {
-			return nil, errors.New("minimum amount of allowed memory is 128MB")
-		}
-
-		// TODO: no top limit for now.
 		hostCfg.Resources.Memory = ToBytes(service.Quota.MemoryLimit)
 	}
 
@@ -161,19 +156,18 @@ func (c *Client) CreateContainer(ctx context.Context, service model.Service, net
 		}
 	}
 
-	c.logger.Tracef("Creating new container with name=%s [ image=%s ]", name, img)
-	resp, err := c.docker.ContainerCreate(ctx, cfg, hostCfg, nil, nil, name)
+	c.logger.Tracef("Creating new container with name=%s [ image=%s ]", service.ContainerName, service.ContainerImage)
+	resp, err := c.docker.ContainerCreate(ctx, cfg, hostCfg, nil, nil, service.ContainerName)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Container{
 		ID:         resp.ID,
-		Name:       name,
+		Name:       service.ContainerName,
 		State:      "created",
 		Endpoint:   ingress,
-		ConfigHash: service.CalculateConfigurationHash(),
-		// TODO: other config properties
+		ConfigHash: service.Hash,
 	}, nil
 }
 
@@ -212,6 +206,49 @@ func (c *Client) PullImageIfNotExists(ctx context.Context, img string) error {
 	}
 
 	return out.Close()
+}
+
+// RemoveUnusedContainers will clean up all the containers for the project that are not mentioned in the excluded containers list.
+func (c *Client) RemoveUnusedContainers(ctx context.Context, project string, excludedContainers []string) (int, error) {
+	containers, err := c.docker.ContainerList(ctx, container.ListOptions{Filters: ProjectFilter(project)})
+	if err != nil {
+		return 0, err
+	}
+
+	removed := 0
+	for _, _container := range containers {
+		excluded := false
+
+		// check to see if the container name is not excluded.
+		if len(excludedContainers) > 0 {
+			for _, name := range _container.Names {
+				if slices.Index(excludedContainers, name) != -1 {
+					// container should be excluded!
+					excluded = true
+					break
+				}
+			}
+		}
+
+		if excluded {
+			// skip container deletion.
+			continue
+		}
+
+		// remove container
+		if err = c.RemoveContainer(ctx, _container.ID); err != nil {
+			return removed, err
+		}
+
+		removed++
+	}
+
+	return removed, nil
+}
+
+// RemoveAllContainersForProject will purge all containers from the system that are linked to the given project.
+func (c *Client) RemoveAllContainersForProject(ctx context.Context, project string) (int, error) {
+	return c.RemoveUnusedContainers(ctx, project, []string{})
 }
 
 // Close will close the open connection to the docker daemon.
