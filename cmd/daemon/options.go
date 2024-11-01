@@ -10,6 +10,9 @@ type Options struct {
 	HTTP struct {
 		ManagementAddress string
 	}
+	ACME struct {
+		Email string
+	}
 
 	DatabaseFile string
 }
@@ -20,5 +23,6 @@ func ParseOptions(args []string) Options {
 	opts.Log.Level = logger.LevelTrace
 	opts.HTTP.ManagementAddress = "127.0.0.1:6440"
 	opts.DatabaseFile = "conter.db"
+	opts.ACME.Email = "user@mail.com"
 	return opts
 }

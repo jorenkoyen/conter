@@ -12,8 +12,9 @@ import (
 )
 
 type IngressManager struct {
-	logger   *logger.Logger
-	Database *db.Client
+	logger             *logger.Logger
+	Database           *db.Client
+	CertificateManager *CertificateManager
 }
 
 func NewIngressManager() *IngressManager {

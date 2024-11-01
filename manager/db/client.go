@@ -14,6 +14,7 @@ import (
 var (
 	BucketProjects = []byte("projects")
 	BucketRoutes   = []byte("routes")
+	BucketConfig   = []byte("config")
 
 	ErrItemNotFound = errors.New("item not found")
 )
@@ -152,6 +153,49 @@ func (c *Client) RemoveIngressRoute(domain string) error {
 		}
 
 		return bucket.Delete([]byte(domain))
+	})
+}
+
+// getConfigContent returns the byte content from 'config' bucket.
+func (c *Client) getConfigContent(key []byte) ([]byte, error) {
+	var content []byte
+	err := c.bolt.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketConfig)
+		if bucket == nil {
+			return ErrItemNotFound
+		}
+
+		content = bucket.Get(key)
+		if content == nil {
+			return ErrItemNotFound
+		}
+
+		return nil
+	})
+
+	return content, err
+}
+
+// setConfigContent updates a key inside the 'config' bucket.
+func (c *Client) setConfigContent(key []byte, content []byte) error {
+	return c.bolt.Update(func(tx *bbolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists(BucketConfig)
+		if err != nil {
+			return err
+		}
+
+		return bucket.Put(key, content)
+	})
+}
+
+// removeConfigContent will remove the configuration content key from the 'config' bucket.
+func (c *Client) removeConfigContent(key []byte) error {
+	return c.bolt.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketConfig)
+		if bucket == nil {
+			return nil
+		}
+		return bucket.Delete(key)
 	})
 }
 
