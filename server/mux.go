@@ -46,7 +46,7 @@ func (m *Mux) wrap(handler Handler) http.HandlerFunc {
 func (m *Mux) error(w http.ResponseWriter, r *http.Request, err error) {
 	// TODO: write error in common format
 	w.WriteHeader(http.StatusInternalServerError)
-	w.Write([]byte(err.Error()))
+	_, _ = w.Write([]byte(err.Error()))
 }
 
 func (m *Mux) ServeHTTP(writer http.ResponseWriter, request *http.Request) {

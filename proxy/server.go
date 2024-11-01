@@ -74,7 +74,6 @@ func (s *Server) createProxyTarget(route *model.IngressRoute) (*httputil.Reverse
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		s.logger.Errorf("Failed to route request to service=%s: %v", route.Service, err)
 		w.WriteHeader(http.StatusServiceUnavailable)
-		return
 	}
 
 	return proxy, nil

@@ -206,7 +206,10 @@ func (c *Client) PullImageIfNotExists(ctx context.Context, img string) error {
 	}
 
 	// discard output
-	io.Copy(io.Discard, out)
+	_, err = io.Copy(io.Discard, out)
+	if err != nil {
+		return err
+	}
 
 	return out.Close()
 }
