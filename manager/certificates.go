@@ -5,7 +5,10 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
+	"errors"
 	"fmt"
+	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/jorenkoyen/conter/manager/db"
@@ -26,6 +29,7 @@ var (
 type CertificateManager struct {
 	logger *logger.Logger
 	config *db.Config
+	data   *db.Client
 	acme   *lego.Client
 }
 
@@ -33,6 +37,7 @@ func NewCertificateManger(database *db.Client, email string) *CertificateManager
 	mgr := &CertificateManager{
 		logger: log.WithName("certificate-mgr"),
 		config: db.NewConfigDatabase(database),
+		data:   database,
 	}
 
 	// check if user is initialized (if not already done)
@@ -113,5 +118,83 @@ func (c *CertificateManager) init(email string, isRetry bool) *lego.Client {
 		c.logger.Tracef("Current active ACME registration on uri=%s", reg.URI)
 	}
 
+	// set challenge providers
+	err = client.Challenge.SetHTTP01Provider(c)
+	if err != nil {
+		c.logger.Fatalf("Failed to register HTTP-01 provider: %v", err)
+	}
+
 	return client
+}
+
+func (c *CertificateManager) Present(domain string, token string, auth string) error {
+	c.logger.Tracef("Presenting new ACME challenge for domain=%s (token=%s)", domain, token)
+	return c.data.SetAcmeChallenge(domain, token, auth)
+}
+
+func (c *CertificateManager) CleanUp(domain string, token string, auth string) error {
+	c.logger.Tracef("Removing ACME challenge for domain=%s (token=%s)", domain, token)
+	return c.data.RemoveAcmeChallenge(domain, token, auth)
+}
+
+// Authorize will return the authorization if available for the given domain.
+func (c *CertificateManager) Authorize(domain string, token string) (string, error) {
+	challenge := c.data.GetDomainChallenge(domain)
+	if challenge == nil {
+		return "", errors.New("no challenge available")
+	}
+
+	if challenge.Token != token {
+		return "", errors.New("invalid token")
+	}
+
+	return challenge.Auth, nil
+}
+
+// ChallengeCreate will create a new challenge request for the ingress domain.
+func (c *CertificateManager) ChallengeCreate(ingress types.Ingress) {
+	if ingress.ChallengeType == types.ChallengeTypeNone {
+		c.logger.Tracef("Ignoring challenge creation for domain=%s", ingress.Domain)
+		return
+	}
+
+	if ingress.ChallengeType != types.ChallengeTypeHTTP {
+		c.logger.Errorf("Challenge type=%s is not supported", ingress.ChallengeType)
+		return
+	}
+
+	if c.data.GetDomainChallenge(ingress.Domain) != nil {
+		c.logger.Infof("Challenge for domain=%s already exists, skipping", ingress.Domain)
+		return
+	}
+
+	go func() {
+		req := certificate.ObtainRequest{
+			Domains: []string{ingress.Domain},
+			Bundle:  true,
+		}
+
+		c.logger.Infof("Requesting certificates for domain=%s", ingress.Domain)
+		resource, err := c.acme.Certificate.Obtain(req)
+		if err != nil {
+			c.logger.Errorf("Failed to obtain certificates for domain=%s: %v", ingress.Domain, err)
+			return
+		}
+
+		c.logger.Tracef("Successfully obtained certificates for domain=%s (uri=%s)", ingress.Domain, resource.CertURL)
+
+		// find current ingress record from store
+		curr, err := c.data.GetIngressRoute(ingress.Domain)
+		if err != nil {
+			c.logger.Errorf("Failed to find matching route for domain=%s when persisting certificates", ingress.Domain)
+			return
+		}
+
+		// encode both certificate & key
+		curr.Certificate = base64.StdEncoding.EncodeToString(resource.Certificate)
+		curr.Key = base64.StdEncoding.EncodeToString(resource.PrivateKey)
+		if err = c.data.SaveIngressRoute(curr); err != nil {
+			c.logger.Errorf("Failed to save ingress route for domain=%s after obtaining certificates", ingress.Domain)
+		}
+	}()
 }

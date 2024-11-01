@@ -253,7 +253,7 @@ func (o *Container) ApplyService(ctx context.Context, service types.Service, net
 			return nil, errors.New("no endpoint available for exposed service")
 		}
 
-		err = o.IngressManager.RegisterRoute(ctx, service.Ingress)
+		err = o.IngressManager.RegisterRoute(service.Ingress)
 		if err != nil {
 			return nil, fmt.Errorf("failed to register ingress route: %w", err)
 		}

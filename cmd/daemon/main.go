@@ -73,6 +73,7 @@ func run(ctx context.Context, args []string) error {
 	// create proxy
 	rp := proxy.NewServer()
 	rp.IngressManager = ingressManager
+	rp.CertificateManager = certificateManager
 	rp.SetLogLevel(logger.LevelInfo)
 
 	// start HTTP proxy
@@ -83,7 +84,13 @@ func run(ctx context.Context, args []string) error {
 		}
 	}()
 
-	// TODO: start HTTPS proxy
+	// start HTTPS proxy
+	go func() {
+		err := rp.ListenForHTTPS(ctx)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Failed to start HTTPS proxy: %v", err)
+		}
+	}()
 
 	// create HTTP server
 	srv := server.NewServer(opts.HTTP.ManagementAddress)

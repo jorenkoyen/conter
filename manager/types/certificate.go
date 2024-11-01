@@ -26,3 +26,9 @@ func (u *AcmeRegistration) GetPrivateKey() crypto.PrivateKey {
 func (u *AcmeRegistration) IsValid() bool {
 	return u.Registration != nil && u.PrivateKey != nil && u.Email != ""
 }
+
+// AcmeChallenge represents an ACME challenge.
+type AcmeChallenge struct {
+	Token string
+	Auth  string
+}

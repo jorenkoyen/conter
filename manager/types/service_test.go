@@ -1,79 +1,6 @@
-package model
+package types
 
-import (
-	"bytes"
-	"testing"
-)
-
-func AssertEquals(t *testing.T, expected, actual interface{}) {
-	t.Helper()
-	if expected != actual {
-		t.Errorf("Expected '%v', got '%v'", expected, actual)
-	}
-}
-
-func TestParse(t *testing.T) {
-
-	data := `{
-	"name": "my-project",
-	"services": [
-		{
-			"name": "website",
-			"source": {
-				"type": "git",
-				"uri": "git@github.com/user/website.git"
-			},
-			"environment": {
-				"ENV_VAR": "one",
-				"ANOTHER_VAR": "two"
-			},
-			"ingress": {
-				"domain": "www.example.com",
-				"container_port": 80,
-				"ssl_challenge": "http01"
-			}
-		},
-		{
-			"name": "database",
-			"source": {
-				"type": "docker",
-				"uri": "postgresql:latest"
-			}
-		}
-	]
-}`
-
-	reader := bytes.NewBufferString(data)
-	project, err := ParseProject(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	AssertEquals(t, "my-project", project.Name)
-	AssertEquals(t, 2, len(project.Services))
-
-	if len(project.Services) != 2 {
-		t.FailNow()
-	}
-
-	// first service 'website'
-	website := project.Services[0]
-	AssertEquals(t, "website", website.Name)
-	AssertEquals(t, "git", website.Source.Type)
-	AssertEquals(t, "git@github.com/user/website.git", website.Source.URI)
-	AssertEquals(t, "one", website.Environment["ENV_VAR"])
-	AssertEquals(t, "two", website.Environment["ANOTHER_VAR"])
-	AssertEquals(t, "www.example.com", website.Ingress.Domain)
-	AssertEquals(t, 80, website.Ingress.ContainerPort)
-	AssertEquals(t, ChallengeHttp01, website.Ingress.SslChallenge)
-
-	// second service 'database'
-	database := project.Services[1]
-	AssertEquals(t, "database", database.Name)
-	AssertEquals(t, "docker", database.Source.Type)
-	AssertEquals(t, "postgresql:latest", database.Source.URI)
-
-}
+import "testing"
 
 func TestService_CalculateConfigurationHash(t *testing.T) {
 	base := new(Service)
@@ -93,8 +20,8 @@ func TestService_CalculateConfigurationHash(t *testing.T) {
 		compare.Source.URI = "nginx:0.0.1"
 		compare.Environment = base.Environment
 
-		actual := base.CalculateConfigurationHash()
-		calculated := compare.CalculateConfigurationHash()
+		actual := CalculateHash(base)
+		calculated := CalculateHash(compare)
 		if actual == calculated {
 			t.Errorf("hash should change when the URI is differnt (hash=%s)", actual)
 		}
@@ -108,8 +35,8 @@ func TestService_CalculateConfigurationHash(t *testing.T) {
 		compare.Source.URI = "git@github.com/user/repo"
 		compare.Environment = base.Environment
 
-		actual := base.CalculateConfigurationHash()
-		calculated := compare.CalculateConfigurationHash()
+		actual := CalculateHash(base)
+		calculated := CalculateHash(compare)
 		if actual == calculated {
 			t.Errorf("Hash should change when source is different (hash=%s)", actual)
 		}
@@ -123,8 +50,8 @@ func TestService_CalculateConfigurationHash(t *testing.T) {
 		compare.Source.URI = base.Source.URI
 		compare.Environment = base.Environment
 
-		actual := base.CalculateConfigurationHash()
-		calculated := compare.CalculateConfigurationHash()
+		actual := CalculateHash(base)
+		calculated := CalculateHash(compare)
 		if actual != calculated {
 			t.Errorf("Hash should be the same when ONLY name is different (expected=%s, actual=%s)", actual, calculated)
 		}
@@ -141,8 +68,8 @@ func TestService_CalculateConfigurationHash(t *testing.T) {
 			"ANOTHER":   "different value",
 		}
 
-		actual := base.CalculateConfigurationHash()
-		calculated := compare.CalculateConfigurationHash()
+		actual := CalculateHash(base)
+		calculated := CalculateHash(compare)
 		if actual == calculated {
 			t.Errorf("Hash should differ when environment values are different (hash=%s)", actual)
 		}
@@ -157,8 +84,8 @@ func TestService_CalculateConfigurationHash(t *testing.T) {
 		compare.Environment = base.Environment
 		compare.Ingress.ContainerPort = 443
 
-		actual := base.CalculateConfigurationHash()
-		calculated := compare.CalculateConfigurationHash()
+		actual := CalculateHash(base)
+		calculated := CalculateHash(compare)
 		if actual == calculated {
 			t.Errorf("Hash should differ when container port values are different (hash=%s)", actual)
 		}
@@ -175,11 +102,11 @@ func BenchmarkService_CalculateConfigurationHash(b *testing.B) {
 		"ANOTHER":   "default-value",
 	}
 
-	actual := base.CalculateConfigurationHash()
+	actual := CalculateHash(base)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			compare := base.CalculateConfigurationHash()
+			compare := CalculateHash(base)
 			if actual != compare {
 				b.Fatalf("Hash should be exactly the same (expected=%s, actual=%s)", actual, compare)
 			}
