@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/jorenkoyen/conter/manager"
-	"github.com/jorenkoyen/conter/manifest"
+	"github.com/jorenkoyen/conter/model"
 	"github.com/jorenkoyen/conter/version"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
@@ -19,8 +19,8 @@ const (
 )
 
 type Server struct {
-	logger  *logger.Logger
-	Ingress *manager.Ingress
+	logger         *logger.Logger
+	IngressManager *manager.IngressManager
 	// TODO: challenge manager
 }
 
@@ -30,9 +30,14 @@ func NewServer() *Server {
 	}
 }
 
+// SetLogLevel overrides the log level for the reverse proxy logger.
+func (s *Server) SetLogLevel(l logger.Level) {
+	s.logger.SetLogLevel(l)
+}
+
 // ServeHTTP will route the HTTP request through to the desired proxy.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	route, err := s.Ingress.Match(r.Host)
+	route, err := s.IngressManager.Match(r.Host)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -51,7 +56,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	proxy.ServeHTTP(w, r)
 }
 
-func (s *Server) createProxyTarget(route *manifest.IngressRoute) (*httputil.ReverseProxy, error) {
+func (s *Server) createProxyTarget(route *model.IngressRoute) (*httputil.ReverseProxy, error) {
 	target, err := url.Parse(fmt.Sprintf("http://%s", route.Endpoint))
 	if err != nil {
 		return nil, err
@@ -69,7 +74,6 @@ func (s *Server) createProxyTarget(route *manifest.IngressRoute) (*httputil.Reve
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		s.logger.Errorf("Failed to route request to service=%s: %v", route.Service, err)
 		w.WriteHeader(http.StatusServiceUnavailable)
-		return
 	}
 
 	return proxy, nil

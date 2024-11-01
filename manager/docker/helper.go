@@ -2,7 +2,7 @@ package docker
 
 import (
 	"fmt"
-	"github.com/jorenkoyen/conter/manifest"
+	"github.com/jorenkoyen/conter/model"
 	"net"
 )
 
@@ -18,7 +18,7 @@ const (
 )
 
 // GenerateServiceLabels will return the labels that are related to the specified service.
-func GenerateServiceLabels(s manifest.Service) map[string]string {
+func GenerateServiceLabels(s model.Service) map[string]string {
 	m := DefaultLabels()
 	m[LabelHash] = s.CalculateConfigurationHash()
 	m[LabelName] = s.Name

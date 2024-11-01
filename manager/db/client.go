@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/jorenkoyen/conter/manifest"
+	"github.com/jorenkoyen/conter/model"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 	"go.etcd.io/bbolt"
 )
 
 var (
-	BucketManifest   = []byte("manifests")
+	BucketProjects   = []byte("projects")
 	BucketRoutes     = []byte("routes")
 	BucketChallenges = []byte("challenges")
 
@@ -36,42 +36,42 @@ func NewClient(path string) *Client {
 	return &Client{logger: l, bolt: db}
 }
 
-// SaveManifest will persist the manifest in the database.
-func (c *Client) SaveManifest(manifest *manifest.Project) error {
+// SaveProject will persist the project in the database.
+func (c *Client) SaveProject(project *model.Project) error {
 	return c.bolt.Update(func(tx *bbolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(BucketManifest)
+		bucket, err := tx.CreateBucketIfNotExists(BucketProjects)
 		if err != nil {
 			return err
 		}
 
-		content, err := json.Marshal(manifest)
+		content, err := json.Marshal(project)
 		if err != nil {
 			return err
 		}
 
-		c.logger.Tracef("Saving manifest with name=%s", manifest.Name)
-		return bucket.Put([]byte(manifest.Name), content)
+		c.logger.Tracef("Saving project with name=%s", project.Name)
+		return bucket.Put([]byte(project.Name), content)
 	})
 }
 
-// RemoveManifest will remove the manifest from the database.
-func (c *Client) RemoveManifest(name string) error {
+// RemoveProject will remove the project from the database.
+func (c *Client) RemoveProject(name string) error {
 	return c.bolt.Update(func(tx *bbolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(BucketManifest)
+		bucket, err := tx.CreateBucketIfNotExists(BucketProjects)
 		if err != nil {
 			return err
 		}
 
-		c.logger.Tracef("Removing manifest with name=%s", name)
+		c.logger.Tracef("Removing project with name=%s", name)
 		return bucket.Delete([]byte(name))
 	})
 }
 
-// GetManifestByName will return the manifest with the matching name if present.
-func (c *Client) GetManifestByName(name string) (*manifest.Project, error) {
-	project := new(manifest.Project)
+// GetProjectByName will return the project with the matching name if present.
+func (c *Client) GetProjectByName(name string) (*model.Project, error) {
+	project := new(model.Project)
 	err := c.bolt.View(func(tx *bbolt.Tx) error {
-		bucket := tx.Bucket(BucketManifest)
+		bucket := tx.Bucket(BucketProjects)
 		if bucket == nil {
 			return ErrItemNotFound
 		}
@@ -81,7 +81,7 @@ func (c *Client) GetManifestByName(name string) (*manifest.Project, error) {
 			return ErrItemNotFound
 		}
 
-		c.logger.Tracef("Retrieving manifest with name=%s", name)
+		c.logger.Tracef("Retrieving project with name=%s", name)
 		return json.Unmarshal(content, project)
 	})
 
@@ -89,8 +89,8 @@ func (c *Client) GetManifestByName(name string) (*manifest.Project, error) {
 }
 
 // GetIngressRoute will return the ingress route if it exists.
-func (c *Client) GetIngressRoute(domain string) (*manifest.IngressRoute, error) {
-	route := new(manifest.IngressRoute)
+func (c *Client) GetIngressRoute(domain string) (*model.IngressRoute, error) {
+	route := new(model.IngressRoute)
 	err := c.bolt.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(BucketRoutes)
 		if bucket == nil {
@@ -107,7 +107,7 @@ func (c *Client) GetIngressRoute(domain string) (*manifest.IngressRoute, error) 
 	return route, err
 }
 
-func (c *Client) SaveIngressRoute(route *manifest.IngressRoute) error {
+func (c *Client) SaveIngressRoute(route *model.IngressRoute) error {
 	return c.bolt.Update(func(tx *bbolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists(BucketRoutes)
 		if err != nil {
@@ -125,8 +125,8 @@ func (c *Client) SaveIngressRoute(route *manifest.IngressRoute) error {
 }
 
 // GetIngressRoutesByProject returns all ingress routes related to the project.
-func (c *Client) GetIngressRoutesByProject(project string) []manifest.IngressRoute {
-	routes := make([]manifest.IngressRoute, 0)
+func (c *Client) GetIngressRoutesByProject(project string) []model.IngressRoute {
+	routes := make([]model.IngressRoute, 0)
 	_ = c.bolt.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(BucketRoutes)
 		if bucket == nil {
@@ -134,7 +134,7 @@ func (c *Client) GetIngressRoutesByProject(project string) []manifest.IngressRou
 		}
 
 		return bucket.ForEach(func(domain, content []byte) error {
-			r := new(manifest.IngressRoute)
+			r := new(model.IngressRoute)
 			if err := json.Unmarshal(content, r); err == nil && r.Project == project {
 				// append to routes array
 				routes = append(routes, *r)

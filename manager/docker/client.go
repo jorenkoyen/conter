@@ -9,7 +9,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/jorenkoyen/conter/manifest"
+	"github.com/jorenkoyen/conter/model"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 	"io"
@@ -111,7 +111,7 @@ func (c *Client) FindContainer(ctx context.Context, name string) *Container {
 }
 
 // CreateContainer will create the container based on the service configuration.
-func (c *Client) CreateContainer(ctx context.Context, service manifest.Service, net *Network, name string, img string) (*Container, error) {
+func (c *Client) CreateContainer(ctx context.Context, service model.Service, net *Network, name string, img string) (*Container, error) {
 	err := c.PullImageIfNotExists(ctx, img)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
@@ -206,7 +206,10 @@ func (c *Client) PullImageIfNotExists(ctx context.Context, img string) error {
 	}
 
 	// discard output
-	io.Copy(io.Discard, out)
+	_, err = io.Copy(io.Discard, out)
+	if err != nil {
+		return err
+	}
 
 	return out.Close()
 }

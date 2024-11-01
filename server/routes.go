@@ -4,24 +4,23 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/jorenkoyen/conter/manifest"
+	"github.com/jorenkoyen/conter/model"
 )
 
-func (s *Server) HandleManifestApply(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) HandleProjectApply(w http.ResponseWriter, r *http.Request) error {
 	if !IsJson(r) {
 		return errors.New("invalid content type")
 	}
 
-	project, err := manifest.Parse(r.Body)
+	project, err := model.ParseProject(r.Body)
 	if err != nil {
-		s.logger.Warning("Unable to parse manifest file")
+		s.logger.Warning("Unable to parse project file")
 		return err
 	}
 
-	s.logger.Debugf("Applying manifest for project=%s", project.Name)
-	err = s.Orchestrator.ApplyManifest(r.Context(), project)
+	err = s.ContainerManager.ApplyProject(r.Context(), project)
 	if err != nil {
-		s.logger.Warningf("Failed to apply manifest for project=%s: %v", project.Name, err)
+		s.logger.Warningf("Failed to apply configuration for project=%s: %v", project.Name, err)
 		return err
 	}
 
@@ -30,19 +29,18 @@ func (s *Server) HandleManifestApply(w http.ResponseWriter, r *http.Request) err
 	return nil
 }
 
-func (s *Server) HandleManifestDelete(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) HandleProjectDelete(w http.ResponseWriter, r *http.Request) error {
 	name := r.PathValue("name")
-	project := s.Orchestrator.FindManifest(name)
+	project := s.ContainerManager.FindProject(name)
 	if project == nil {
-		s.logger.Warningf("No manifest found with name=%s", name)
+		s.logger.Warningf("No project found with name=%s", name)
 		// TODO: not found error
-		return errors.New("manifest not found")
+		return errors.New("project not found")
 	}
 
-	s.logger.Debugf("Deleting manifest for project=%s", project.Name)
-	err := s.Orchestrator.RemoveManifest(r.Context(), project)
+	err := s.ContainerManager.RemoveProject(r.Context(), project)
 	if err != nil {
-		s.logger.Warningf("Failed to delete manifest for project=%s: %v", project.Name, err)
+		s.logger.Warningf("Failed to delete configuration for project=%s: %v", project.Name, err)
 		return err
 	}
 
@@ -50,6 +48,6 @@ func (s *Server) HandleManifestDelete(w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
-func (s *Server) HandleManifestRetrieve(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) HandleProjectRetrieve(w http.ResponseWriter, r *http.Request) error {
 	return errors.New("not implemented")
 }
