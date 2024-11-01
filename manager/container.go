@@ -12,10 +12,10 @@ import (
 )
 
 type Container struct {
-	logger   *logger.Logger
-	Database *db.Client
-	Docker   *docker.Client
-	Ingress  *IngressManager
+	logger         *logger.Logger
+	Database       *db.Client
+	Docker         *docker.Client
+	IngressManager *IngressManager
 }
 
 func NewContainerManager() *Container {
@@ -57,7 +57,7 @@ func (o *Container) ApplyProject(ctx context.Context, project *model.Project) er
 		if service.HasIngress() {
 			ing := service.Ingress
 			opts := RegisterRouteOptions{Challenge: ing.SslChallenge, Project: project.Name, Service: service.Name}
-			err = o.Ingress.RegisterRoute(ctx, ing.Domain, container.Endpoint, opts)
+			err = o.IngressManager.RegisterRoute(ctx, ing.Domain, container.Endpoint, opts)
 			if err != nil {
 				return fmt.Errorf("failed to register ingress route for %s: %w", ing.Domain, err)
 			}
@@ -68,7 +68,7 @@ func (o *Container) ApplyProject(ctx context.Context, project *model.Project) er
 	}
 
 	// remove unused routes for project
-	err = o.Ingress.RemoveUnusedRoutes(project.Name, routes)
+	err = o.IngressManager.RemoveUnusedRoutes(project.Name, routes)
 	if err != nil {
 		return fmt.Errorf("failed to remove unused routes for %s: %w", project.Name, err)
 	}

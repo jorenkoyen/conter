@@ -10,10 +10,10 @@ import (
 )
 
 type Server struct {
-	logger       *logger.Logger
-	addr         string
-	Orchestrator *manager.Container
-	handler      http.Handler
+	logger           *logger.Logger
+	addr             string
+	ContainerManager *manager.Container
+	handler          http.Handler
 }
 
 // NewServer will create a new management HTTP server.

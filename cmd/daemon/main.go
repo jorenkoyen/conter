@@ -40,7 +40,7 @@ func run(ctx context.Context, args []string) error {
 	defer cancel()
 
 	// create database client
-	database := db.NewClient("conter.db")
+	database := db.NewClient(opts.DatabaseFile)
 	defer database.Close()
 
 	// create docker client
@@ -48,18 +48,18 @@ func run(ctx context.Context, args []string) error {
 	defer dckr.Close()
 
 	// create ingress manager
-	ingress := manager.NewIngressManager()
-	ingress.Database = database
+	ingressManager := manager.NewIngressManager()
+	ingressManager.Database = database
 
 	// create orchestrator
-	orchestrator := manager.NewContainerManager()
-	orchestrator.Database = database
-	orchestrator.Docker = dckr
-	orchestrator.Ingress = ingress
+	containerManager := manager.NewContainerManager()
+	containerManager.Database = database
+	containerManager.Docker = dckr
+	containerManager.IngressManager = ingressManager
 
 	// create proxy
 	rp := proxy.NewServer()
-	rp.Ingress = ingress
+	rp.IngressManager = ingressManager
 	rp.SetLogLevel(logger.LevelInfo)
 
 	// start HTTP proxy
@@ -74,7 +74,7 @@ func run(ctx context.Context, args []string) error {
 
 	// create HTTP server
 	srv := server.NewServer(opts.HTTP.ManagementAddress)
-	srv.Orchestrator = orchestrator
+	srv.ContainerManager = containerManager
 
 	// start application
 	log.Infof("Starting conter @ version=%s [ go=%s arch=%s ]", version.Version, version.GoVersion, runtime.GOARCH)

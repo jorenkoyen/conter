@@ -19,8 +19,8 @@ const (
 )
 
 type Server struct {
-	logger  *logger.Logger
-	Ingress *manager.IngressManager
+	logger         *logger.Logger
+	IngressManager *manager.IngressManager
 	// TODO: challenge manager
 }
 
@@ -37,7 +37,7 @@ func (s *Server) SetLogLevel(l logger.Level) {
 
 // ServeHTTP will route the HTTP request through to the desired proxy.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	route, err := s.Ingress.Match(r.Host)
+	route, err := s.IngressManager.Match(r.Host)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return

@@ -18,7 +18,7 @@ func (s *Server) HandleProjectApply(w http.ResponseWriter, r *http.Request) erro
 		return err
 	}
 
-	err = s.Orchestrator.ApplyProject(r.Context(), project)
+	err = s.ContainerManager.ApplyProject(r.Context(), project)
 	if err != nil {
 		s.logger.Warningf("Failed to apply configuration for project=%s: %v", project.Name, err)
 		return err
@@ -31,14 +31,14 @@ func (s *Server) HandleProjectApply(w http.ResponseWriter, r *http.Request) erro
 
 func (s *Server) HandleProjectDelete(w http.ResponseWriter, r *http.Request) error {
 	name := r.PathValue("name")
-	project := s.Orchestrator.FindProject(name)
+	project := s.ContainerManager.FindProject(name)
 	if project == nil {
 		s.logger.Warningf("No project found with name=%s", name)
 		// TODO: not found error
 		return errors.New("project not found")
 	}
 
-	err := s.Orchestrator.RemoveProject(r.Context(), project)
+	err := s.ContainerManager.RemoveProject(r.Context(), project)
 	if err != nil {
 		s.logger.Warningf("Failed to delete configuration for project=%s: %v", project.Name, err)
 		return err
