@@ -86,6 +86,27 @@ func (c *Client) GetServicesForProject(project string) []types.Service {
 	return services
 }
 
+// GetAllProjects will return a map of all projects known by the system in combination with their services.
+func (c *Client) GetAllProjects() map[string][]types.Service {
+	output := make(map[string][]types.Service)
+	_ = c.bolt.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketProjects)
+		if bucket == nil {
+			return nil
+		}
+
+		return bucket.ForEach(func(project, content []byte) error {
+			var services []types.Service
+			if err := json.Unmarshal(content, &services); err != nil {
+				return nil // ignore
+			}
+			output[string(project)] = services
+			return nil
+		})
+	})
+	return output
+}
+
 // GetIngressRoute will return the ingress route if it exists.
 func (c *Client) GetIngressRoute(domain string) (*types.Ingress, error) {
 	route := new(types.Ingress)
@@ -245,6 +266,29 @@ func (c *Client) GetCertificate(domain string) (*types.Certificate, error) {
 	})
 
 	return certificate, err
+}
+
+// GetAllCertificates will return all certificates with the key being the domain name.
+func (c *Client) GetAllCertificates() map[string]*types.Certificate {
+	output := make(map[string]*types.Certificate)
+	_ = c.bolt.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketCertificates)
+		if bucket == nil {
+			return nil
+		}
+
+		return bucket.ForEach(func(domain, content []byte) error {
+			var cert *types.Certificate
+			if err := json.Unmarshal(content, &cert); err != nil {
+				return nil // ignore errors
+			}
+
+			output[string(domain)] = cert
+			return nil
+		})
+	})
+
+	return output
 }
 
 // RemoveCertificate removes the certificate from the bucket.

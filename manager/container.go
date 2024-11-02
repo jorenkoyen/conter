@@ -289,3 +289,71 @@ func (o *Container) RemoveProject(ctx context.Context, project string) error {
 	o.logger.Infof("Successfully removed project=%s from the system (containers=%d, routes=%d)", project, containers, routes)
 	return o.Database.RemoveProject(project)
 }
+
+const (
+	StateNotAvailable = "not_available"
+	StatusRunning     = "running"
+	StatusStopped     = "stopped"
+)
+
+type Status struct {
+	Service []types.Service
+	states  map[string]string
+}
+
+// GetState retrieves the current state of the service.
+func (s *Status) GetState(service string) string {
+	current, ok := s.states[service]
+	if !ok {
+		return StateNotAvailable
+	}
+
+	return current
+}
+
+func (o *Container) GetProjectStatus(ctx context.Context, project string) (*Status, error) {
+	status := &Status{
+		states: make(map[string]string),
+	}
+
+	status.Service = o.Database.GetServicesForProject(project)
+	if len(status.Service) == 0 {
+		return nil, errors.New("no services found")
+	}
+
+	// go over each service and inspect both ingress + container
+	for _, service := range status.Service {
+
+		container := o.Docker.FindContainer(ctx, service.ContainerName)
+		if container != nil {
+			if container.IsRunning() {
+				status.states[service.Name] = StatusRunning
+			} else {
+				status.states[service.Name] = StatusStopped
+			}
+		}
+	}
+
+	return status, nil
+}
+
+// IsProjectRunning will return true if all services within the project are running.
+func (o *Container) IsProjectRunning(ctx context.Context, project string) bool {
+	status, err := o.GetProjectStatus(ctx, project)
+	if err != nil {
+		return false
+	}
+
+	for _, service := range status.Service {
+		if status.GetState(service.Name) != StatusRunning {
+			return false
+		}
+	}
+
+	return true
+}
+
+// FindAllProjects will return all projects currently available.
+func (o *Container) FindAllProjects() map[string][]types.Service {
+	return o.Database.GetAllProjects()
+}

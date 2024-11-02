@@ -95,6 +95,7 @@ func run(ctx context.Context, args []string) error {
 	// create HTTP server
 	srv := server.NewServer(opts.HTTP.ManagementAddress)
 	srv.ContainerManager = containerManager
+	srv.CertificateManager = certificateManager
 
 	// start application
 	log.Infof("Starting conter @ version=%s [ go=%s arch=%s ]", version.Version, version.GoVersion, runtime.GOARCH)

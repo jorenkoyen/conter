@@ -213,3 +213,8 @@ func (c *CertificateManager) Get(domain string) *types.Certificate {
 
 	return cert
 }
+
+// GetAll will retrieve all certificates currently known to the system.
+func (c *CertificateManager) GetAll() map[string]*types.Certificate {
+	return c.data.GetAllCertificates()
+}

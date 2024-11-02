@@ -3,7 +3,10 @@ package types
 import (
 	"crypto"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
+	"errors"
 	"github.com/go-acme/lego/v4/registration"
 )
 
@@ -69,4 +72,26 @@ func (c *Certificate) X509KeyPair() (*tls.Certificate, error) {
 	}
 
 	return &pair, nil
+}
+
+// Parse will return the first certificate of the bundle.
+func (c *Certificate) Parse() (*x509.Certificate, error) {
+	raw, err := c.CertificateBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	// Decode a PEM block
+	block, _ := pem.Decode(raw)
+	if block == nil {
+		return nil, errors.New("no PEM data found to decode")
+	}
+
+	// Ensure the block is a certificate
+	if block.Type != "CERTIFICATE" {
+		return nil, errors.New("invalid PEM block type found")
+	}
+
+	// Parse the certificate
+	return x509.ParseCertificate(block.Bytes)
 }

@@ -10,10 +10,12 @@ import (
 )
 
 type Server struct {
-	logger           *logger.Logger
-	addr             string
-	ContainerManager *manager.Container
-	handler          http.Handler
+	logger  *logger.Logger
+	addr    string
+	handler http.Handler
+
+	ContainerManager   *manager.Container
+	CertificateManager *manager.CertificateManager
 }
 
 // NewServer will create a new management HTTP server.
@@ -29,9 +31,12 @@ func NewServer(addr string) *Server {
 	mux.Use(s.LoggerMiddleware())
 
 	// register routes
+	mux.Handle("GET /api/projects", s.HandleProjectList)
 	mux.Handle("POST /api/projects", s.HandleProjectApply)
 	mux.Handle("GET /api/projects/{name}", s.HandleProjectRetrieve)
 	mux.Handle("DELETE /api/projects/{name}", s.HandleProjectDelete)
+	mux.Handle("GET /api/certificates", s.HandleCertificatesRetrieve)
+	mux.Handle("GET /api/certificates/{domain}/data", s.HandleCertificateRetrieveData)
 
 	return s
 }
