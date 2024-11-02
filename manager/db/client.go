@@ -11,10 +11,11 @@ import (
 )
 
 var (
-	BucketProjects   = []byte("projects")
-	BucketRoutes     = []byte("routes")
-	BucketConfig     = []byte("config")
-	BucketChallenges = []byte("challenges")
+	BucketProjects     = []byte("projects")
+	BucketRoutes       = []byte("routes")
+	BucketConfig       = []byte("config")
+	BucketChallenges   = []byte("challenges")
+	BucketCertificates = []byte("certificates")
 
 	ErrItemNotFound = errors.New("item not found")
 )
@@ -223,6 +224,55 @@ func (c *Client) RemoveAcmeChallenge(domain string, token string, auth string) e
 		} else {
 			return nil // no action required
 		}
+	})
+}
+
+// GetCertificate retrieves the certificate for the specified domain.
+func (c *Client) GetCertificate(domain string) (*types.Certificate, error) {
+	certificate := new(types.Certificate)
+	err := c.bolt.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketCertificates)
+		if bucket == nil {
+			return ErrItemNotFound
+		}
+
+		content := bucket.Get([]byte(domain))
+		if content == nil {
+			return ErrItemNotFound
+		}
+
+		return json.Unmarshal(content, certificate)
+	})
+
+	return certificate, err
+}
+
+// RemoveCertificate removes the certificate from the bucket.
+func (c *Client) RemoveCertificate(domain string) error {
+	return c.bolt.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketCertificates)
+		if bucket == nil {
+			return nil
+		}
+
+		return bucket.Delete([]byte(domain))
+	})
+}
+
+// SetCertificate persists the certificate configuration for the domain.
+func (c *Client) SetCertificate(domain string, cert *types.Certificate) error {
+	return c.bolt.Update(func(tx *bbolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists(BucketCertificates)
+		if err != nil {
+			return err
+		}
+
+		content, err := json.Marshal(cert)
+		if err != nil {
+			return err
+		}
+
+		return bucket.Put([]byte(domain), content)
 	})
 }
 

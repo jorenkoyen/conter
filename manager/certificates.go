@@ -168,6 +168,8 @@ func (c *CertificateManager) ChallengeCreate(ingress types.Ingress) {
 		return
 	}
 
+	// TODO: check if we already have a certificate
+
 	go func() {
 		req := certificate.ObtainRequest{
 			Domains: []string{ingress.Domain},
@@ -183,18 +185,31 @@ func (c *CertificateManager) ChallengeCreate(ingress types.Ingress) {
 
 		c.logger.Tracef("Successfully obtained certificates for domain=%s (uri=%s)", ingress.Domain, resource.CertURL)
 
-		// find current ingress record from store
-		curr, err := c.data.GetIngressRoute(ingress.Domain)
-		if err != nil {
-			c.logger.Errorf("Failed to find matching route for domain=%s when persisting certificates", ingress.Domain)
-			return
+		cert := &types.Certificate{
+			Certificate:   base64.StdEncoding.EncodeToString(resource.Certificate),
+			Key:           base64.StdEncoding.EncodeToString(resource.PrivateKey),
+			ChallengeType: ingress.ChallengeType,
 		}
 
-		// encode both certificate & key
-		curr.Certificate = base64.StdEncoding.EncodeToString(resource.Certificate)
-		curr.Key = base64.StdEncoding.EncodeToString(resource.PrivateKey)
-		if err = c.data.SaveIngressRoute(curr); err != nil {
-			c.logger.Errorf("Failed to save ingress route for domain=%s after obtaining certificates", ingress.Domain)
+		// persist certificate for domain
+		err = c.data.SetCertificate(ingress.Domain, cert)
+		if err != nil {
+			c.logger.Errorf("Failed to save certificate for domain=%s: %v", ingress.Domain, err)
 		}
 	}()
+}
+
+// Get will retrieve the active certificate for the given domain if available.
+// If no certificate is available it will return nil.
+func (c *CertificateManager) Get(domain string) *types.Certificate {
+	cert, err := c.data.GetCertificate(domain)
+	if err != nil {
+		if !errors.Is(err, db.ErrItemNotFound) {
+			c.logger.Warningf("Failed to retrieve certificate for domain=%s: %v", domain, err)
+		}
+
+		return nil
+	}
+
+	return cert
 }

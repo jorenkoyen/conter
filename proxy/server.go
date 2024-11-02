@@ -3,7 +3,7 @@ package proxy
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
+	"errors"
 	"fmt"
 	"github.com/jorenkoyen/conter/manager"
 	"github.com/jorenkoyen/conter/manager/types"
@@ -136,31 +136,15 @@ func (s *Server) ListenForHTTPS(ctx context.Context) error {
 	return server.ListenAndServeTLS("", "")
 }
 
+// getCertificate handles the retrieval of the TLS certificate based on the SNI of the server.
 func (s *Server) getCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	route, err := s.IngressManager.Match(hello.ServerName)
-	if err != nil {
-		return nil, fmt.Errorf("unable to find route: %w", err)
+	cert := s.CertificateManager.Get(hello.ServerName)
+	if cert == nil {
+		return nil, errors.New("no certificate found")
 	}
 
-	if route.Certificate == "" || route.Key == "" {
-		return nil, fmt.Errorf("no certificates available for %s", hello.ServerName)
-	}
+	// TODO: check if certificate is valid (not expired)
 
-	_key, err := base64.StdEncoding.DecodeString(route.Key)
-	if err != nil {
-		return nil, fmt.Errorf("unable to decode key: %w", err)
-	}
-
-	_certificate, err := base64.StdEncoding.DecodeString(route.Certificate)
-	if err != nil {
-		return nil, fmt.Errorf("unable to decode certificate: %w", err)
-	}
-
-	c, err := tls.X509KeyPair(_certificate, _key)
-	if err != nil {
-		return nil, fmt.Errorf("unable to load certificate: %w", err)
-	}
-
-	s.logger.Infof("Returning certificate for domain=%s", hello.ServerName)
-	return &c, nil
+	s.logger.Tracef("Returning certificcate for domain=%s", hello.ServerName)
+	return cert.X509KeyPair()
 }
