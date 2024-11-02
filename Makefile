@@ -10,3 +10,6 @@ test:
 
 bench:
 	go test -bench=. -benchmem ./...
+
+acme:
+	~/go/bin/pebble -config test/config/pebble.json

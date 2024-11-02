@@ -2,15 +2,20 @@ package proxy
 
 import (
 	"context"
+	"crypto/tls"
+	"errors"
 	"fmt"
 	"github.com/jorenkoyen/conter/manager"
-	"github.com/jorenkoyen/conter/model"
+	"github.com/jorenkoyen/conter/manager/types"
 	"github.com/jorenkoyen/conter/version"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+
+	defaultLog "log"
 )
 
 const (
@@ -19,9 +24,9 @@ const (
 )
 
 type Server struct {
-	logger         *logger.Logger
-	IngressManager *manager.IngressManager
-	// TODO: challenge manager
+	logger             *logger.Logger
+	IngressManager     *manager.IngressManager
+	CertificateManager *manager.CertificateManager
 }
 
 func NewServer() *Server {
@@ -37,8 +42,14 @@ func (s *Server) SetLogLevel(l logger.Level) {
 
 // ServeHTTP will route the HTTP request through to the desired proxy.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.IsAcmeChallenge(r) {
+		s.HandleAcmeChallenge(w, r)
+		return
+	}
+
 	route, err := s.IngressManager.Match(r.Host)
 	if err != nil {
+		s.logger.Warningf("No route found for domain=%s, aborting...", r.Host)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -52,12 +63,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// proxy request
-	s.logger.Tracef("Routing through request to endpoint=%s (service=%s, method=%s, path=%s)", route.Endpoint, route.Service, r.Method, r.URL.Path)
+	s.logger.Tracef("Routing through request to endpoint=%s (service=%s, method=%s, path=%s)", route.TargetEndpoint, route.TargetService, r.Method, r.URL.Path)
 	proxy.ServeHTTP(w, r)
 }
 
-func (s *Server) createProxyTarget(route *model.IngressRoute) (*httputil.ReverseProxy, error) {
-	target, err := url.Parse(fmt.Sprintf("http://%s", route.Endpoint))
+func (s *Server) createProxyTarget(ingress *types.Ingress) (*httputil.ReverseProxy, error) {
+	target, err := url.Parse(fmt.Sprintf("http://%s", ingress.TargetEndpoint))
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +83,7 @@ func (s *Server) createProxyTarget(route *model.IngressRoute) (*httputil.Reverse
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		s.logger.Errorf("Failed to route request to service=%s: %v", route.Service, err)
+		s.logger.Errorf("Failed to route request to service=%s: %v", ingress.TargetService, err)
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 
@@ -81,7 +92,11 @@ func (s *Server) createProxyTarget(route *model.IngressRoute) (*httputil.Reverse
 
 // ListenForHTTP will start listening for incoming HTTP request that require to be proxied through.
 func (s *Server) ListenForHTTP(ctx context.Context) error {
-	server := &http.Server{Addr: AddressHTTP, Handler: s}
+	server := &http.Server{
+		Addr:     AddressHTTP,
+		Handler:  s,
+		ErrorLog: defaultLog.New(io.Discard, "", 0),
+	}
 
 	go func() {
 		<-ctx.Done()
@@ -94,4 +109,42 @@ func (s *Server) ListenForHTTP(ctx context.Context) error {
 	// create HTTP server
 	s.logger.Debugf("Starting HTTP proxy on address=%s", AddressHTTP)
 	return server.ListenAndServe()
+}
+
+// ListenForHTTPS will start listening for incoming HTTPS requests that required to be proxied through.
+func (s *Server) ListenForHTTPS(ctx context.Context) error {
+	server := &http.Server{
+		Addr:    AddressHTTPS,
+		Handler: s,
+		TLSConfig: &tls.Config{
+			MinVersion:     tls.VersionTLS12,
+			GetCertificate: s.getCertificate,
+		},
+		ErrorLog: defaultLog.New(io.Discard, "", 0),
+	}
+
+	go func() {
+		<-ctx.Done()
+		s.logger.Trace("Gracefully shutting down HTTPS proxy")
+		if err := server.Shutdown(context.Background()); err != nil {
+			s.logger.Errorf("Failed to shutdown server: %v", err)
+		}
+	}()
+
+	// create HTTPS server
+	s.logger.Debugf("Starting HTTPS proxy on address=%s", AddressHTTPS)
+	return server.ListenAndServeTLS("", "")
+}
+
+// getCertificate handles the retrieval of the TLS certificate based on the SNI of the server.
+func (s *Server) getCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	cert := s.CertificateManager.Get(hello.ServerName)
+	if cert == nil {
+		return nil, errors.New("no certificate found")
+	}
+
+	// TODO: check if certificate is valid (not expired)
+
+	s.logger.Tracef("Returning certificcate for domain=%s", hello.ServerName)
+	return cert.X509KeyPair()
 }

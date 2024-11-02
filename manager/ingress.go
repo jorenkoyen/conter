@@ -1,19 +1,18 @@
 package manager
 
 import (
-	"context"
 	"fmt"
 	"github.com/jorenkoyen/conter/manager/db"
 	"github.com/jorenkoyen/conter/manager/types"
-	"github.com/jorenkoyen/conter/model"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 	"slices"
 )
 
 type IngressManager struct {
-	logger   *logger.Logger
-	Database *db.Client
+	logger             *logger.Logger
+	Database           *db.Client
+	CertificateManager *CertificateManager
 }
 
 func NewIngressManager() *IngressManager {
@@ -22,14 +21,8 @@ func NewIngressManager() *IngressManager {
 	}
 }
 
-type RegisterRouteOptions struct {
-	Challenge model.ChallengeType
-	Project   string
-	Service   string
-}
-
 // RegisterRoute will register a new ingress route and complete the necessary actions to make it ready for use.
-func (i *IngressManager) RegisterRoute(ctx context.Context, ingress types.Ingress) error {
+func (i *IngressManager) RegisterRoute(ingress types.Ingress) error {
 	i.logger.Debugf("Registering route for domain=%s (endpoint=%s, challenge_type=%s)", ingress.Domain, ingress.TargetEndpoint, ingress.ChallengeType)
 
 	// check if we already have a registered route
@@ -37,24 +30,28 @@ func (i *IngressManager) RegisterRoute(ctx context.Context, ingress types.Ingres
 	// 	-> check if project is correct
 	route, err := i.Match(ingress.Domain)
 	if err == nil {
-		if route.Endpoint == ingress.TargetEndpoint {
+		if route.TargetEndpoint == ingress.TargetEndpoint {
 			// no action required, correct endpoint already assigned
 			i.logger.Debugf("No action required for registering route for %s, endpoint is already correct", ingress.Domain)
 			return nil
 		}
-		if route.Project != ingress.TargetProject {
-			return fmt.Errorf("domain %s is already in use for project=%s", ingress.Domain, route.Project)
+		if route.TargetProject != ingress.TargetProject {
+			return fmt.Errorf("domain %s is already in use for project=%s", ingress.Domain, route.TargetProject)
 		}
-		if route.Service != ingress.TargetService {
-			i.logger.Warningf("Overwriting domain configuration for service=%s, now pointing to service=%s (domain=%s)", route.Service, ingress.TargetService, ingress.Domain)
+		if route.TargetService != ingress.TargetService {
+			i.logger.Warningf("Overwriting domain configuration for service=%s, now pointing to service=%s (domain=%s)", route.TargetService, ingress.TargetService, ingress.Domain)
 		}
 	}
 
-	// TODO: create challenge (http01 only for now)
+	// save ingress route before requesting challenge (avoid race conditions)
+	err = i.Database.SaveIngressRoute(&ingress)
+	if err != nil {
+		return fmt.Errorf("failed to save ingress route: %w", err)
+	}
 
-	// register route
-	route = &model.IngressRoute{Domain: ingress.Domain, Endpoint: ingress.TargetEndpoint, Service: ingress.TargetService, Project: ingress.TargetProject}
-	return i.Database.SaveIngressRoute(route)
+	// kick-off challenge creation for ingress
+	i.CertificateManager.ChallengeCreate(ingress)
+	return nil
 }
 
 // RemoveUnusedRoutes will remove all unused routes related to the specified project.
@@ -85,6 +82,6 @@ func (i *IngressManager) RemoveAllRoutes(project string) (int, error) {
 }
 
 // Match will retrieve the ingress route information for the specified domain.
-func (i *IngressManager) Match(domain string) (*model.IngressRoute, error) {
+func (i *IngressManager) Match(domain string) (*types.Ingress, error) {
 	return i.Database.GetIngressRoute(domain)
 }

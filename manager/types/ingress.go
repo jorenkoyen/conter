@@ -17,7 +17,5 @@ type Ingress struct {
 	TargetService  string `json:"target_service"`
 	TargetProject  string `json:"target_project"`
 
-	ChallengeType      ChallengeType `json:"challenge_type"`
-	CertificatePublic  string        `json:"cert_public"`
-	CertificatePrivate string        `json:"cert_private"`
+	ChallengeType ChallengeType `json:"challenge_type"`
 }

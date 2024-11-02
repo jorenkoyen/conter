@@ -15,6 +15,7 @@ import (
 	"io"
 	"slices"
 	"strconv"
+	"strings"
 )
 
 type Client struct {
@@ -222,6 +223,8 @@ func (c *Client) RemoveUnusedContainers(ctx context.Context, project string, exc
 		// check to see if the container name is not excluded.
 		if len(excludedContainers) > 0 {
 			for _, name := range _container.Names {
+				name = strings.TrimPrefix(name, "/")
+
 				if slices.Index(excludedContainers, name) != -1 {
 					// container should be excluded!
 					excluded = true

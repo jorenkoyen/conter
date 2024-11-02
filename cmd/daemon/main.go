@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/jorenkoyen/conter/proxy"
 	"github.com/jorenkoyen/conter/version"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,9 +19,15 @@ import (
 	"github.com/jorenkoyen/conter/server"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
+
+	legolog "github.com/go-acme/lego/v4/log"
+	defaultLog "log"
 )
 
 func run(ctx context.Context, args []string) error {
+	// disable default 'log' -> lego uses this internally
+	legolog.Logger = defaultLog.New(io.Discard, "", defaultLog.LstdFlags)
+
 	// parse CLI options
 	opts := ParseOptions(args)
 
@@ -47,9 +54,15 @@ func run(ctx context.Context, args []string) error {
 	dckr := docker.NewClient()
 	defer dckr.Close()
 
+	// create certificate manager
+	manager.LetsEncryptDirectoryUrl = "https://localhost:14000/dir" // TODO: change this based on configuration
+	manager.InsecureDirectory = true                                // TODO: local test
+	certificateManager := manager.NewCertificateManger(database, opts.ACME.Email)
+
 	// create ingress manager
 	ingressManager := manager.NewIngressManager()
 	ingressManager.Database = database
+	ingressManager.CertificateManager = certificateManager
 
 	// create orchestrator
 	containerManager := manager.NewContainerManager()
@@ -60,6 +73,7 @@ func run(ctx context.Context, args []string) error {
 	// create proxy
 	rp := proxy.NewServer()
 	rp.IngressManager = ingressManager
+	rp.CertificateManager = certificateManager
 	rp.SetLogLevel(logger.LevelInfo)
 
 	// start HTTP proxy
@@ -70,11 +84,18 @@ func run(ctx context.Context, args []string) error {
 		}
 	}()
 
-	// TODO: start HTTPS proxy
+	// start HTTPS proxy
+	go func() {
+		err := rp.ListenForHTTPS(ctx)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Failed to start HTTPS proxy: %v", err)
+		}
+	}()
 
 	// create HTTP server
 	srv := server.NewServer(opts.HTTP.ManagementAddress)
 	srv.ContainerManager = containerManager
+	srv.CertificateManager = certificateManager
 
 	// start application
 	log.Infof("Starting conter @ version=%s [ go=%s arch=%s ]", version.Version, version.GoVersion, runtime.GOARCH)
