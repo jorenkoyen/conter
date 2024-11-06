@@ -42,6 +42,14 @@ func run(ctx context.Context, args []string) error {
 		Level:     opts.Log.Level,
 	}))
 
+	// validate options
+	if opts.ACME.Email == "" {
+		return errors.New("ACME email address is required when requesting certificates")
+	}
+	if opts.ACME.Directory == "" {
+		return errors.New("ACME directory URL is required")
+	}
+
 	log.Infof("Starting conter @ version=%s [ go=%s arch=%s ]", version.Version, version.GoVersion, runtime.GOARCH)
 
 	// listen for ctrl+c notifies
@@ -57,8 +65,8 @@ func run(ctx context.Context, args []string) error {
 	defer dckr.Close()
 
 	// create certificate manager
-	manager.LetsEncryptDirectoryUrl = "https://localhost:14000/dir" // TODO: change this based on configuration
-	manager.InsecureDirectory = true                                // TODO: local test
+	manager.LetsEncryptDirectoryUrl = opts.ACME.Directory
+	manager.InsecureDirectory = opts.ACME.Insecure
 	certificateManager := manager.NewCertificateManger(database, opts.ACME.Email)
 
 	// create ingress manager
@@ -76,7 +84,6 @@ func run(ctx context.Context, args []string) error {
 	rp := proxy.NewServer()
 	rp.IngressManager = ingressManager
 	rp.CertificateManager = certificateManager
-	rp.SetLogLevel(logger.LevelInfo)
 
 	// start HTTP proxy
 	go func() {
@@ -109,7 +116,7 @@ func run(ctx context.Context, args []string) error {
 
 func main() {
 	ctx := context.Background()
-	if err := run(ctx, os.Args); err != nil {
+	if err := run(ctx, os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}

@@ -6,7 +6,7 @@ require (
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/go-acme/lego/v4 v4.19.2
-	github.com/jorenkoyen/go-logger v0.0.1
+	github.com/jorenkoyen/go-logger v0.0.2
 	github.com/karlseguin/jsonwriter v1.0.3
 	go.etcd.io/bbolt v1.3.11
 )

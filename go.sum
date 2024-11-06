@@ -38,6 +38,8 @@ github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 h1:asbCHRVmodnJTuQ3qamDwqVOIjw
 github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0/go.mod h1:ggCgvZ2r7uOoQjOyu2Y1NhHmEPPzzuhWgcza5M1Ji1I=
 github.com/jorenkoyen/go-logger v0.0.1 h1:1y3Tx5dIeRO7MVMnOEzzQeH2IAFBzebyz6lOgXuZ8Qs=
 github.com/jorenkoyen/go-logger v0.0.1/go.mod h1:Em8HZdCkbh/a+Fr6tc4eJHhTzJGc1fTCpc/bmk8b1vY=
+github.com/jorenkoyen/go-logger v0.0.2 h1:zyBG46umpgu2x/c3Eb4deaZIcuAbv2+OkXXxTGPe1zQ=
+github.com/jorenkoyen/go-logger v0.0.2/go.mod h1:Em8HZdCkbh/a+Fr6tc4eJHhTzJGc1fTCpc/bmk8b1vY=
 github.com/karlseguin/expect v1.0.8 h1:Bb0H6IgBWQpadY25UDNkYPDB9ITqK1xnSoZfAq362fw=
 github.com/karlseguin/expect v1.0.8/go.mod h1:lXdI8iGiQhmzpnnmU/EGA60vqKs8NbRNFnhhrJGoD5g=
 github.com/karlseguin/jsonwriter v1.0.3 h1:FbqewBAP5WYTLTk0qwf0iAynRP3+0NvTxOOfqElUvoU=
