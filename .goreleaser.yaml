@@ -1,0 +1,54 @@
+# The lines below are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/need to use them.
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: 'daemon'
+    main: './cmd/daemon'
+    binary: 'daemon'
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/jorenkoyen/conter/version.Version={{.Version}}
+      - -X github.com/jorenkoyen/conter/version.Commit={{.ShortCommit}}
+
+archives:
+  - format: tar.gz
+    builds:
+      - daemon
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: daemon_{{ .Os }}_{{ .Arch }}
+
+nfpms:
+  - package_name: conter
+    builds:
+      - daemon
+    vendor: Dsync
+    homepage: https://www.dsync.io
+    maintainer: Joren Koyen <joren@dsync.io>
+    description: A minimal container management system for small scale web deployments
+    bindir: /usr/bin
+    formats:
+      - deb
+      - rpm
+    dependencies:
+      - docker
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

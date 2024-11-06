@@ -13,3 +13,9 @@ bench:
 
 acme:
 	~/go/bin/pebble -config test/config/pebble.json
+
+build:
+	goreleaser build --snapshot --single-target --clean
+
+snapshot:
+	goreleaser --snapshot --clean

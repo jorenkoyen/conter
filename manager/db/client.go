@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jorenkoyen/conter/manager/types"
+	"time"
 
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
@@ -29,7 +30,7 @@ type Client struct {
 // NewClient will create a new database client for handling operations.
 func NewClient(path string) *Client {
 	l := log.WithName("database")
-	db, err := bbolt.Open(path, 0600, nil)
+	db, err := bbolt.Open(path, 0600, &bbolt.Options{Timeout: time.Second * 2})
 	if err != nil {
 		l.Fatalf("Failed to create new database client: %v", err)
 	}

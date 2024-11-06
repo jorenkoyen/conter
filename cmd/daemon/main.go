@@ -42,6 +42,8 @@ func run(ctx context.Context, args []string) error {
 		Level:     opts.Log.Level,
 	}))
 
+	log.Infof("Starting conter @ version=%s [ go=%s arch=%s ]", version.Version, version.GoVersion, runtime.GOARCH)
+
 	// listen for ctrl+c notifies
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
@@ -98,7 +100,6 @@ func run(ctx context.Context, args []string) error {
 	srv.CertificateManager = certificateManager
 
 	// start application
-	log.Infof("Starting conter @ version=%s [ go=%s arch=%s ]", version.Version, version.GoVersion, runtime.GOARCH)
 	if err := srv.Listen(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
