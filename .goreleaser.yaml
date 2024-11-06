@@ -12,7 +12,7 @@ before:
 builds:
   - id: 'daemon'
     main: './cmd/daemon'
-    binary: 'daemon'
+    binary: 'conter'
     goos:
       - linux
       - darwin
