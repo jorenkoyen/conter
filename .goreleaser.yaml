@@ -23,28 +23,29 @@ builds:
       - -s -w
       - -X github.com/jorenkoyen/conter/version.Version={{.Version}}
       - -X github.com/jorenkoyen/conter/version.Commit={{.ShortCommit}}
+  - id: 'cli'
+    main: './cmd/cli'
+    binary: 'conterctl'
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/jorenkoyen/conter/version.Version={{.Version}}
+      - -X github.com/jorenkoyen/conter/version.Commit={{.ShortCommit}}
 
 archives:
   - format: tar.gz
+    files:
+      - none*
     builds:
       - daemon
+      - cli
     # this name template makes the OS and Arch compatible with the results of `uname`.
-    name_template: daemon_{{ .Os }}_{{ .Arch }}
-
-nfpms:
-  - package_name: conter
-    builds:
-      - daemon
-    vendor: Dsync
-    homepage: https://www.dsync.io
-    maintainer: Joren Koyen <joren@dsync.io>
-    description: A minimal container management system for small scale web deployments
-    bindir: /usr/bin
-    formats:
-      - deb
-      - rpm
-    dependencies:
-      - docker
+    name_template: conter_{{ .Os }}_{{ .Arch }}
 
 changelog:
   sort: asc
