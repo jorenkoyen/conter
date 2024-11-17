@@ -40,8 +40,9 @@ WantedBy=multi-user.target`
 
 func service() *cli.Command {
 	return &cli.Command{
-		Name:  "service",
-		Usage: "Manage the systemctl service for Conter",
+		Name:    "service",
+		Usage:   "Manage the systemctl service for Conter",
+		Aliases: []string{"svc"},
 		Before: func(c *cli.Context) error {
 			if runtime.GOOS != "linux" {
 				return errors.New("service utilities are only available for Linux")

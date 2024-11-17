@@ -13,8 +13,9 @@ import (
 
 func certificate() *cli.Command {
 	return &cli.Command{
-		Name:  "certificate",
-		Usage: "Manage certificates",
+		Name:    "certificate",
+		Aliases: []string{"cert"},
+		Usage:   "Manage certificates",
 		Subcommands: []*cli.Command{
 			{
 				Name:   "ls",
