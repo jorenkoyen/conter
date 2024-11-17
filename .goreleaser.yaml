@@ -25,7 +25,7 @@ builds:
       - -X github.com/jorenkoyen/conter/version.Commit={{.ShortCommit}}
   - id: 'cli'
     main: './cmd/cli'
-    binary: 'conterctl'
+    binary: 'conctl'
     goos:
       - linux
       - darwin

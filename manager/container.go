@@ -283,7 +283,8 @@ func (o *Container) RemoveProject(ctx context.Context, project string) error {
 	// delete network
 	err = o.Docker.DeleteNetwork(ctx, project)
 	if err != nil {
-		return fmt.Errorf("failed to remove network: %w", err)
+		// only log warning
+		o.logger.Warningf("Failed to remove network for project=%s (rsn=%v)", project, err)
 	}
 
 	o.logger.Infof("Successfully removed project=%s from the system (containers=%d, routes=%d)", project, containers, routes)

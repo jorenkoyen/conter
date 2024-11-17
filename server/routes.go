@@ -38,6 +38,7 @@ func (s *Server) HandleProjectApply(w http.ResponseWriter, r *http.Request) erro
 				writer.ArrayObject(func() {
 					writer.KeyString("name", service.Name)
 					writer.KeyString("hash", service.Hash)
+					writer.KeyString("status", manager.StatusRunning) // always running when applied
 
 					if service.Ingress.Domain != "" {
 						writer.Object("ingress", func() {
@@ -115,22 +116,19 @@ func (s *Server) HandleProjectList(w http.ResponseWriter, r *http.Request) error
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	writer := jsonwriter.New(w)
-	writer.RootObject(func() {
-		writer.KeyInt("total", len(projects))
-		writer.Array("projects", func() {
-			for name, services := range projects {
-				writer.ArrayObject(func() {
-					writer.KeyString("name", name)
-					writer.KeyValue("running", s.ContainerManager.IsProjectRunning(r.Context(), name))
-					writer.Array("services", func() {
-						for _, service := range services {
-							writer.Value(service.Name)
-						}
-					})
-
+	writer.RootArray(func() {
+		for name, services := range projects {
+			writer.ArrayObject(func() {
+				writer.KeyString("name", name)
+				writer.KeyValue("running", s.ContainerManager.IsProjectRunning(r.Context(), name))
+				writer.Array("services", func() {
+					for _, service := range services {
+						writer.Value(service.Name)
+					}
 				})
-			}
-		})
+
+			})
+		}
 	})
 
 	return nil
@@ -142,32 +140,29 @@ func (s *Server) HandleCertificatesRetrieve(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	writer := jsonwriter.New(w)
-	writer.RootObject(func() {
-		writer.KeyInt("total", len(certificates))
-		writer.Array("certificates", func() {
-			for domain, certificate := range certificates {
-				writer.ArrayObject(func() {
-					writer.KeyString("domain", domain)
-					writer.KeyString("challenge", string(certificate.ChallengeType))
+	writer.RootArray(func() {
+		for domain, certificate := range certificates {
+			writer.ArrayObject(func() {
+				writer.KeyString("domain", domain)
+				writer.KeyString("challenge", string(certificate.ChallengeType))
 
-					info, err := certificate.Parse()
-					if err != nil {
-						// skip information
-						return
-					}
+				info, err := certificate.Parse()
+				if err != nil {
+					// skip information
+					return
+				}
 
-					writer.Object("meta", func() {
-						writer.KeyString("subject", info.Subject.CommonName)
-						writer.KeyString("issuer", info.Issuer.CommonName)
-						writer.KeyString("since", info.NotBefore.Format(time.RFC3339))
-						writer.KeyString("expiry", info.NotAfter.Format(time.RFC3339))
-						writer.KeyString("serial", info.SerialNumber.String())
-						writer.KeyString("signature_algorithm", info.SignatureAlgorithm.String())
-						writer.KeyString("public_algorithm", info.PublicKeyAlgorithm.String())
-					})
+				writer.Object("meta", func() {
+					writer.KeyString("subject", info.Subject.CommonName)
+					writer.KeyString("issuer", info.Issuer.CommonName)
+					writer.KeyString("since", info.NotBefore.Format(time.RFC3339))
+					writer.KeyString("expiry", info.NotAfter.Format(time.RFC3339))
+					writer.KeyString("serial", info.SerialNumber.String())
+					writer.KeyString("signature_algorithm", info.SignatureAlgorithm.String())
+					writer.KeyString("public_algorithm", info.PublicKeyAlgorithm.String())
 				})
-			}
-		})
+			})
+		}
 	})
 
 	return nil
@@ -181,13 +176,38 @@ func (s *Server) HandleCertificateRetrieveData(w http.ResponseWriter, r *http.Re
 		return errors.New("not found")
 	}
 
-	content, err := cert.CertificateBytes()
-	if err != nil {
-		return err
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	writer := jsonwriter.New(w)
+	writer.RootObject(func() {
+		writer.KeyString("domain", domain)
+		writer.KeyString("challenge", string(cert.ChallengeType))
+		writer.KeyString("pem", cert.Certificate)
+
+		if info, err := cert.Parse(); err == nil {
+			writer.Object("meta", func() {
+				writer.KeyString("subject", info.Subject.CommonName)
+				writer.KeyString("issuer", info.Issuer.CommonName)
+				writer.KeyString("since", info.NotBefore.Format(time.RFC3339))
+				writer.KeyString("expiry", info.NotAfter.Format(time.RFC3339))
+				writer.KeyString("serial", info.SerialNumber.String())
+				writer.KeyString("signature_algorithm", info.SignatureAlgorithm.String())
+				writer.KeyString("public_algorithm", info.PublicKeyAlgorithm.String())
+			})
+		}
+	})
+	return nil
+}
+
+func (s *Server) HandleCertificateRenew(w http.ResponseWriter, r *http.Request) error {
+	domain := r.PathValue("domain")
+	cert := s.CertificateManager.Get(domain)
+	if cert == nil {
+		s.logger.Warningf("No certificate found for domain=%s when trying to renew", domain)
+		return errors.New("not found")
 	}
 
-	w.Header().Set("Content-Type", "application/x-pem-file")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(content)
+	s.CertificateManager.ChallengeCreate(domain, cert.ChallengeType)
+	w.WriteHeader(http.StatusAccepted)
 	return nil
 }
