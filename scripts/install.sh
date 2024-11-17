@@ -222,6 +222,7 @@ detect_arch() {
 
   case "${arch}" in
     amd64) arch="amd64" ;;
+    x86_64) arch="amd64" ;;
     armv*) arch="arm" ;;
     arm64) arch="arm64" ;;
   esac
