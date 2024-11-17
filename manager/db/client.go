@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jorenkoyen/conter/manager/types"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -37,12 +36,6 @@ type Client struct {
 // NewClient will create a new database client for handling operations.
 func NewClient() *Client {
 	l := log.WithName("database")
-
-	// make sure that path exists
-	err := os.MkdirAll(DataDirectory, os.ModePerm)
-	if err != nil {
-		l.Fatalf("Failed to create data directory: %w", err)
-	}
 
 	path := filepath.Join(DataDirectory, DataFileName)
 	db, err := bbolt.Open(path, 0600, &bbolt.Options{Timeout: time.Second * 2})

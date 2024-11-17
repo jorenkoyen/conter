@@ -7,13 +7,17 @@ import (
 	"github.com/urfave/cli/v2"
 	"os"
 	"os/exec"
+	"os/user"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
 )
 
 const (
+	ConfigDirectory = "/etc/conter"
+	DataDirectory   = "/var/lib/conter"
 	ServiceName     = "conter"
 	SystemdLocation = "/etc/systemd/system/conter.service"
 	UnitTemplate    = `[Unit]
@@ -126,9 +130,16 @@ func installServiceHandler(c *cli.Context) error {
 			return fmt.Errorf("failed to write systemd unit file: %w", err)
 		}
 
-		// reload daemon
 		if err := reloadSystemctlDaemon(); err != nil {
 			return fmt.Errorf("failed to reload systemctl daemon: %w", err)
+		}
+
+		if err := ensureDirExistsAndSetPermissions(ConfigDirectory); err != nil {
+			return fmt.Errorf("failed to create config directory: %w", err)
+		}
+
+		if err := ensureDirExistsAndSetPermissions(DataDirectory); err != nil {
+			return fmt.Errorf("failed to create data directory: %w", err)
 		}
 	}
 
@@ -243,4 +254,64 @@ func renderSystemdFile(binary string) []byte {
 func systemdFileExists() bool {
 	_, err := os.Stat(SystemdLocation)
 	return err == nil
+}
+
+// ensureDirExistsAndSetPermissions ensures the directory exists, creates it if not, and sets the owner and group.
+func ensureDirExistsAndSetPermissions(dir string) error {
+	// Check if the directory exists
+	_, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		// Create the directory if it does not exist
+		err := os.MkdirAll(dir, 0755) // 0755: standard permissions for directories
+		if err != nil {
+			return fmt.Errorf("failed to create directory %s: %v", dir, err)
+		}
+		fmt.Printf("Directory %s created successfully\n", dir)
+	} else if err != nil {
+		return fmt.Errorf("error checking directory %s: %v", dir, err)
+	} else {
+		fmt.Printf("Directory %s already exists\n", dir)
+	}
+
+	// Set the owner and group
+	err = setOwnerAndGroup(dir, ServiceName, ServiceName)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setOwnerAndGroup sets the owner and group of the directory.
+func setOwnerAndGroup(path, owner, group string) error {
+	// Get user by username
+	userInfo, err := user.Lookup(owner)
+	if err != nil {
+		return fmt.Errorf("failed to lookup user %s: %v", owner, err)
+	}
+	// Get group by name
+	groupInfo, err := user.LookupGroup(group)
+	if err != nil {
+		return fmt.Errorf("failed to lookup group %s: %v", group, err)
+	}
+
+	// Convert user and group IDs to integers
+	uid, err := strconv.Atoi(userInfo.Uid)
+	if err != nil {
+		return fmt.Errorf("failed to convert user ID to integer: %v", err)
+	}
+
+	gid, err := strconv.Atoi(groupInfo.Gid)
+	if err != nil {
+		return fmt.Errorf("failed to convert group ID to integer: %v", err)
+	}
+
+	// Set the owner and group using os.Chown
+	err = os.Chown(path, uid, gid)
+	if err != nil {
+		return fmt.Errorf("failed to change owner and group for %s: %v", path, err)
+	}
+
+	fmt.Printf("Owner and group of %s set to user %s and group %s\n", path, owner, group)
+	return nil
 }
