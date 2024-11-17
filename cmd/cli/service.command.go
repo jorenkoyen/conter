@@ -1,13 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jorenkoyen/go-logger"
 	"github.com/urfave/cli/v2"
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -112,9 +116,7 @@ func installServiceHandler(c *cli.Context) error {
 		return errors.New("insufficient permissions, please run as root or with sudo")
 	}
 
-	if systemdFileExists() {
-		fmt.Printf("Systemd file is already installed at location %s", SystemdLocation)
-	} else {
+	if !systemdFileExists() {
 		// create users if not exists
 		if err := createUsersIfNotExists(); err != nil {
 			return err
@@ -140,6 +142,10 @@ func installServiceHandler(c *cli.Context) error {
 
 		if err := ensureDirExistsAndSetPermissions(DataDirectory); err != nil {
 			return fmt.Errorf("failed to create data directory: %w", err)
+		}
+
+		if err := generateBaseConfig(); err != nil {
+			return fmt.Errorf("failed to generate base config: %w", err)
 		}
 	}
 
@@ -179,28 +185,20 @@ func checkGroupExists(groupname string) bool {
 func createUsersIfNotExists() error {
 	// Check and create group if it does not exist
 	if !checkGroupExists(ServiceName) {
-		fmt.Printf("Group %s does not exist. Creating...\n", ServiceName)
 		cmd := exec.Command("groupadd", ServiceName)
 		err := cmd.Run()
 		if err != nil {
 			return fmt.Errorf("failed to create group %s: %v", ServiceName, err)
 		}
-		fmt.Printf("Group %s created successfully.\n", ServiceName)
-	} else {
-		fmt.Printf("Group %s already exists.\n", ServiceName)
 	}
 
 	// Check and create user if it does not exist
 	if !checkUserExists(ServiceName) {
-		fmt.Printf("User %s does not exist. Creating...\n", ServiceName)
 		cmd := exec.Command("useradd", "-r", "-g", ServiceName, "-s", "/bin/false", ServiceName)
 		err := cmd.Run()
 		if err != nil {
 			return fmt.Errorf("failed to create user %s: %v", ServiceName, err)
 		}
-		fmt.Printf("User %s created successfully.\n", ServiceName)
-	} else {
-		fmt.Printf("User %s already exists.\n", ServiceName)
 	}
 
 	return nil
@@ -213,7 +211,6 @@ func reloadSystemctlDaemon() error {
 	if err != nil {
 		return fmt.Errorf("failed to reload systemctl daemon: %v", err)
 	}
-	fmt.Println("systemctl daemon reloaded successfully.")
 	return nil
 }
 
@@ -225,14 +222,12 @@ func enableAndStartService() error {
 	if err := enableCmd.Run(); err != nil {
 		return fmt.Errorf("failed to enable service %s: %v", name, err)
 	}
-	fmt.Printf("Service %s enabled successfully.\n", name)
 
 	// Start the service
 	startCmd := exec.Command("systemctl", "start", name)
 	if err := startCmd.Run(); err != nil {
 		return fmt.Errorf("failed to start service %s: %v", name, err)
 	}
-	fmt.Printf("Service %s started successfully.\n", name)
 
 	return nil
 }
@@ -262,15 +257,12 @@ func ensureDirExistsAndSetPermissions(dir string) error {
 	_, err := os.Stat(dir)
 	if os.IsNotExist(err) {
 		// Create the directory if it does not exist
-		err := os.MkdirAll(dir, 0755) // 0755: standard permissions for directories
-		if err != nil {
+		// 0755: standard permissions for directories
+		if err = os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %v", dir, err)
 		}
-		fmt.Printf("Directory %s created successfully\n", dir)
 	} else if err != nil {
 		return fmt.Errorf("error checking directory %s: %v", dir, err)
-	} else {
-		fmt.Printf("Directory %s already exists\n", dir)
 	}
 
 	// Set the owner and group
@@ -312,6 +304,52 @@ func setOwnerAndGroup(path, owner, group string) error {
 		return fmt.Errorf("failed to change owner and group for %s: %v", path, err)
 	}
 
-	fmt.Printf("Owner and group of %s set to user %s and group %s\n", path, owner, group)
+	return nil
+}
+
+// generateBaseConfig prompts the user for their email and creates the initial required configuration.
+func generateBaseConfig() error {
+	reader := bufio.NewReader(os.Stdin)
+
+	// Prompt the user for their email
+	fmt.Print("Please enter your email: ")
+
+	// Read the input (email address)
+	email, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read input: %v", err)
+	}
+
+	// Remove the trailing newline character
+	email = email[:len(email)-1]
+
+	// generate minimal JSON config
+	config := map[string]interface{}{
+		"log": map[string]string{
+			"level": logger.LevelInfoValue,
+		},
+		"acme": map[string]string{
+			"email": email,
+		},
+	}
+
+	location := filepath.Join(ConfigDirectory, "config.json")
+	content, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize config: %w", err)
+	}
+
+	// write to file and change ownership
+	file, err := os.Create(location)
+	if err != nil {
+		return fmt.Errorf("failed to create config file: %w", err)
+	}
+
+	defer file.Close()
+	_, err = file.Write(content)
+	if err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
 	return nil
 }
