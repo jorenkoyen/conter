@@ -39,10 +39,11 @@ func run(ctx context.Context, args []string) error {
 		// override formatter with pretty formatter
 		formatter = logger.NewPrettyFormatter()
 	}
+
 	log.SetDefaultLogger(logger.NewWithOptions(logger.Options{
 		Writer:    os.Stdout,
 		Formatter: formatter,
-		Level:     opts.Log.Level,
+		Level:     logger.ParseLevel(opts.Log.Level),
 	}))
 
 	// validate options

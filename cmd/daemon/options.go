@@ -10,8 +10,8 @@ import (
 
 type Options struct {
 	Log struct {
-		Pretty bool         `json:"pretty"`
-		Level  logger.Level `json:"level"`
+		Pretty bool   `json:"pretty"`
+		Level  string `json:"level"`
 	} `json:"log"`
 
 	HTTP struct {
@@ -28,7 +28,7 @@ type Options struct {
 func ParseOptions(args []string) (Options, error) {
 	opts := Options{}
 	opts.Log.Pretty = false
-	opts.Log.Level = logger.LevelInfo
+	opts.Log.Level = logger.LevelInfoValue
 	opts.HTTP.ManagementAddress = "127.0.0.1:6440"
 	opts.ACME.Directory = lego.LEDirectoryStaging // staging by default
 	opts.ACME.Insecure = false
