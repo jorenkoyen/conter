@@ -4,11 +4,18 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jorenkoyen/conter/manager/types"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 	"go.etcd.io/bbolt"
+)
+
+const (
+	DataDirectory = "/var/lib/conter"
+	DataFileName  = "app.db"
 )
 
 var (
@@ -28,8 +35,16 @@ type Client struct {
 }
 
 // NewClient will create a new database client for handling operations.
-func NewClient(path string) *Client {
+func NewClient() *Client {
 	l := log.WithName("database")
+
+	// make sure that path exists
+	err := os.MkdirAll(DataDirectory, os.ModePerm)
+	if err != nil {
+		l.Fatalf("Failed to create data directory: %w", err)
+	}
+
+	path := filepath.Join(DataDirectory, DataFileName)
 	db, err := bbolt.Open(path, 0600, &bbolt.Options{Timeout: time.Second * 2})
 	if err != nil {
 		l.Fatalf("Failed to create new database client: %v", err)

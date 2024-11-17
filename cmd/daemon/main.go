@@ -29,7 +29,10 @@ func run(ctx context.Context, args []string) error {
 	legolog.Logger = defaultLog.New(io.Discard, "", defaultLog.LstdFlags)
 
 	// parse CLI options
-	opts := ParseOptions(args)
+	opts, err := ParseOptions(args)
+	if err != nil {
+		return fmt.Errorf("failed to parse configuration: %w", err)
+	}
 
 	var formatter logger.Formatter = logger.NewTextFormatter()
 	if opts.Log.Pretty {
@@ -57,7 +60,7 @@ func run(ctx context.Context, args []string) error {
 	defer cancel()
 
 	// create database client
-	database := db.NewClient(opts.DatabaseFile)
+	database := db.NewClient()
 	defer database.Close()
 
 	// create docker client

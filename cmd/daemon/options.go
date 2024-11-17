@@ -1,42 +1,49 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"github.com/go-acme/lego/v4/lego"
 	"github.com/jorenkoyen/go-logger"
+	"os"
 )
 
 type Options struct {
 	Log struct {
-		Pretty bool
-		Level  logger.Level
-	}
-	HTTP struct {
-		ManagementAddress string
-	}
-	ACME struct {
-		Email     string
-		Directory string
-		Insecure  bool
-	}
+		Pretty bool         `json:"pretty"`
+		Level  logger.Level `json:"level"`
+	} `json:"log"`
 
-	DatabaseFile string
+	HTTP struct {
+		ManagementAddress string `json:"mgmt"`
+	} `json:"http"`
+
+	ACME struct {
+		Email     string `json:"email"`
+		Directory string `json:"directory"`
+		Insecure  bool   `json:"insecure"`
+	} `json:"acme"`
 }
 
-func ParseOptions(args []string) Options {
+func ParseOptions(args []string) (Options, error) {
 	opts := Options{}
+	opts.Log.Pretty = false
+	opts.Log.Level = logger.LevelInfo
+	opts.HTTP.ManagementAddress = "127.0.0.1:6440"
+	opts.ACME.Directory = lego.LEDirectoryStaging // staging by default
+	opts.ACME.Insecure = false
 
-	var lvl string // log level (needs to be parsed)
-
+	var location string
 	fs := flag.NewFlagSet("conter", flag.ExitOnError)
-	fs.BoolVar(&opts.Log.Pretty, "log-pretty", false, "If the log output should be pretty formatted")
-	fs.StringVar(&lvl, "log-level", "info", "The log level that should be applied for the application")
-	fs.StringVar(&opts.HTTP.ManagementAddress, "address", "127.0.0.1:6640", "The HTTP management address")
-	fs.StringVar(&opts.ACME.Email, "acme-email", "", "The email address for the owner of the ACME certificates")
-	fs.StringVar(&opts.ACME.Directory, "acme-directory", "", "The ACME directory URL to use when requesting certificates")
-	fs.BoolVar(&opts.ACME.Insecure, "acme-insecure", false, "If the ACME directory is to be considered insecure")
-	fs.StringVar(&opts.DatabaseFile, "database", "/var/lib/conter/state.db", "The path to the database file")
+	fs.StringVar(&location, "config", "/etc/conter/config.json", "The location of the configuration file")
 	_ = fs.Parse(args) // exit on error -> error can be ignored
 
-	opts.Log.Level = logger.ParseLevel(lvl)
-	return opts
+	// read configuration file
+	content, err := os.ReadFile(location)
+	if err != nil {
+		return opts, err
+	}
+
+	err = json.Unmarshal(content, &opts)
+	return opts, err
 }
