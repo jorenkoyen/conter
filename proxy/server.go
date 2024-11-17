@@ -49,7 +49,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	route, err := s.IngressManager.Match(r.Host)
 	if err != nil {
-		s.logger.Warningf("No route found for domain=%s, aborting...", r.Host)
+		s.logger.Warningf("No route found for domain=%s, aborting... (ip=%s, agent=%s)", r.Host, r.RemoteAddr, r.UserAgent())
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
