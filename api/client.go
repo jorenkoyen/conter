@@ -20,7 +20,7 @@ type Client struct {
 // NewClientFromEnv will create a new API client for the current environment it's running in.
 func NewClientFromEnv() *Client {
 	return &Client{
-		base: &url.URL{Scheme: "http", Host: "127.0.0.1:6640"},
+		base: &url.URL{Scheme: "http", Host: "127.0.0.1:6440"},
 		http: http.DefaultClient,
 	}
 }
