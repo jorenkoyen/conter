@@ -431,7 +431,7 @@ fi
 
 printf '\n'
 
-PACKAGE_NAME="daemon"
+PACKAGE_NAME="conter"
 EXT="tar.gz"
 if [ "${VERSION}" != "latest" ]; then
   URL="${BASE_URL}/download/${VERSION}/${PACKAGE_NAME}_${TARGET}.${EXT}"
