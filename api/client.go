@@ -1,13 +1,15 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/jorenkoyen/conter/version"
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/jorenkoyen/conter/version"
 )
 
 type Client struct {
@@ -50,9 +52,19 @@ func checkResponseError(resp *http.Response, body []byte) error {
 }
 
 // do will execute the HTTP request.
-func (c *Client) do(ctx context.Context, method, path string, reqBody io.Reader, respData any) error {
+func (c *Client) do(ctx context.Context, method, path string, reqBody any, respData any) error {
+	var reader io.Reader
+	if reqBody != nil {
+		raw, err := json.Marshal(reqBody)
+		if err != nil {
+			return err
+		}
+
+		reader = bytes.NewReader(raw)
+	}
+
 	endpoint := c.base.JoinPath(path)
-	req, err := http.NewRequestWithContext(ctx, method, endpoint.String(), reqBody)
+	req, err := http.NewRequestWithContext(ctx, method, endpoint.String(), reader)
 	if err != nil {
 		return err
 	}
@@ -106,4 +118,36 @@ func (c *Client) CertificateInspect(ctx context.Context, domain string) (*Certif
 func (c *Client) CertificateRenew(ctx context.Context, domain string) error {
 	endpoint := fmt.Sprintf("/api/certificates/%s/renew", domain)
 	return c.do(ctx, http.MethodPost, endpoint, nil, nil)
+}
+
+// ProjectList will return the current projects known to the system
+func (c *Client) ProjectList(ctx context.Context) ([]ProjectSummary, error) {
+	var projects []ProjectSummary
+	if err := c.do(ctx, http.MethodGet, "/api/projects", nil, &projects); err != nil {
+		return nil, err
+	}
+	return projects, nil
+}
+
+// ProjectInspect will return the detailed information about the project for the given name.
+func (c *Client) ProjectInspect(ctx context.Context, name string) (*Project, error) {
+	var project Project
+	if err := c.do(ctx, http.MethodGet, "/api/projects/"+name, nil, &project); err != nil {
+		return nil, err
+	}
+	return &project, nil
+}
+
+// ProjectApply will apply the project configuration to the system.
+func (c *Client) ProjectApply(ctx context.Context, cmd ProjectApplyCommand) (*Project, error) {
+	var project Project
+	if err := c.do(ctx, http.MethodPost, "/api/projects", cmd, &project); err != nil {
+		return nil, err
+	}
+	return &project, nil
+}
+
+// ProjectRemove will remove the project from the system.
+func (c *Client) ProjectRemove(ctx context.Context, name string) error {
+	return c.do(ctx, http.MethodDelete, "/api/projects/"+name, nil, nil)
 }

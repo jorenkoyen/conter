@@ -42,3 +42,38 @@ type Certificate struct {
 		PublicAlgorithm    string    `json:"public_algorithm"`
 	} `json:"meta,omitempty"`
 }
+
+type ProjectSummary struct {
+	Name     string   `json:"name"`
+	Running  bool     `json:"running"`
+	Services []string `json:"services"`
+}
+
+type Project struct {
+	Name     string    `json:"project"`
+	Services []Service `json:"services"`
+}
+
+type Service struct {
+	Name    string `json:"name"`
+	Hash    string `json:"hash"`
+	Status  string `json:"status"`
+	Ingress struct {
+		Domain           string              `json:"domain"`
+		InternalEndpoint string              `json:"internal"`
+		ChallengeType    types.ChallengeType `json:"challenge"`
+	} `json:"ingress,omitempty"`
+}
+
+type ProjectApplyCommand struct {
+	ProjectName string `json:"project_name"`
+	Services    []struct {
+		Name          string              `json:"name"`
+		Source        types.Source        `json:"source"`
+		Environment   map[string]string   `json:"environment"`
+		IngressDomain string              `json:"ingress_domain"`
+		ContainerPort int                 `json:"container_port"`
+		ChallengeType types.ChallengeType `json:"challenge_type"`
+		Quota         types.Quota         `json:"quota"`
+	} `json:"services"`
+}

@@ -38,6 +38,7 @@ func (s *Server) HandleProjectApply(w http.ResponseWriter, r *http.Request) erro
 				writer.ArrayObject(func() {
 					writer.KeyString("name", service.Name)
 					writer.KeyString("hash", service.Hash)
+					writer.KeyString("status", manager.StatusRunning) // always running when applied
 
 					if service.Ingress.Domain != "" {
 						writer.Object("ingress", func() {
@@ -115,22 +116,19 @@ func (s *Server) HandleProjectList(w http.ResponseWriter, r *http.Request) error
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	writer := jsonwriter.New(w)
-	writer.RootObject(func() {
-		writer.KeyInt("total", len(projects))
-		writer.Array("projects", func() {
-			for name, services := range projects {
-				writer.ArrayObject(func() {
-					writer.KeyString("name", name)
-					writer.KeyValue("running", s.ContainerManager.IsProjectRunning(r.Context(), name))
-					writer.Array("services", func() {
-						for _, service := range services {
-							writer.Value(service.Name)
-						}
-					})
-
+	writer.RootArray(func() {
+		for name, services := range projects {
+			writer.ArrayObject(func() {
+				writer.KeyString("name", name)
+				writer.KeyValue("running", s.ContainerManager.IsProjectRunning(r.Context(), name))
+				writer.Array("services", func() {
+					for _, service := range services {
+						writer.Value(service.Name)
+					}
 				})
-			}
-		})
+
+			})
+		}
 	})
 
 	return nil
