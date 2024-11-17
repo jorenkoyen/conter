@@ -152,49 +152,47 @@ func (c *CertificateManager) Authorize(domain string, token string) (string, err
 }
 
 // ChallengeCreate will create a new challenge request for the ingress domain.
-func (c *CertificateManager) ChallengeCreate(ingress types.Ingress) {
-	if ingress.ChallengeType == types.ChallengeTypeNone {
-		c.logger.Tracef("Ignoring challenge creation for domain=%s", ingress.Domain)
+func (c *CertificateManager) ChallengeCreate(domain string, challenge types.ChallengeType) {
+	if challenge == types.ChallengeTypeNone {
+		c.logger.Tracef("Ignoring challenge creation for domain=%s", domain)
 		return
 	}
 
-	if ingress.ChallengeType != types.ChallengeTypeHTTP {
-		c.logger.Errorf("Challenge type=%s is not supported", ingress.ChallengeType)
+	if challenge != types.ChallengeTypeHTTP {
+		c.logger.Errorf("Challenge type=%s is not supported", challenge)
 		return
 	}
 
-	if c.data.GetDomainChallenge(ingress.Domain) != nil {
-		c.logger.Infof("Challenge for domain=%s already exists, skipping", ingress.Domain)
+	if c.data.GetDomainChallenge(domain) != nil {
+		c.logger.Infof("Challenge for domain=%s already exists, skipping", domain)
 		return
 	}
-
-	// TODO: check if we already have a certificate
 
 	go func() {
 		req := certificate.ObtainRequest{
-			Domains: []string{ingress.Domain},
+			Domains: []string{domain},
 			Bundle:  true,
 		}
 
-		c.logger.Infof("Requesting certificates for domain=%s", ingress.Domain)
+		c.logger.Infof("Requesting certificates for domain=%s", domain)
 		resource, err := c.acme.Certificate.Obtain(req)
 		if err != nil {
-			c.logger.Errorf("Failed to obtain certificates for domain=%s: %v", ingress.Domain, err)
+			c.logger.Errorf("Failed to obtain certificates for domain=%s: %v", domain, err)
 			return
 		}
 
-		c.logger.Tracef("Successfully obtained certificates for domain=%s (uri=%s)", ingress.Domain, resource.CertURL)
+		c.logger.Tracef("Successfully obtained certificates for domain=%s (uri=%s)", domain, resource.CertURL)
 
 		cert := &types.Certificate{
 			Certificate:   base64.StdEncoding.EncodeToString(resource.Certificate),
 			Key:           base64.StdEncoding.EncodeToString(resource.PrivateKey),
-			ChallengeType: ingress.ChallengeType,
+			ChallengeType: challenge,
 		}
 
 		// persist certificate for domain
-		err = c.data.SetCertificate(ingress.Domain, cert)
+		err = c.data.SetCertificate(domain, cert)
 		if err != nil {
-			c.logger.Errorf("Failed to save certificate for domain=%s: %v", ingress.Domain, err)
+			c.logger.Errorf("Failed to save certificate for domain=%s: %v", domain, err)
 		}
 	}()
 }

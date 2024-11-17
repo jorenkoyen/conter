@@ -30,14 +30,16 @@ func NewServer(addr string) *Server {
 	// register middleware
 	mux.Use(s.LoggerMiddleware())
 
-	// register routes
+	// -- projects
 	mux.Handle("GET /api/projects", s.HandleProjectList)
 	mux.Handle("POST /api/projects", s.HandleProjectApply)
 	mux.Handle("GET /api/projects/{name}", s.HandleProjectRetrieve)
 	mux.Handle("DELETE /api/projects/{name}", s.HandleProjectDelete)
-	mux.Handle("GET /api/certificates", s.HandleCertificatesRetrieve)
-	mux.Handle("GET /api/certificates/{domain}/data", s.HandleCertificateRetrieveData)
 
+	// -- certificates
+	mux.Handle("GET /api/certificates", s.HandleCertificatesRetrieve)
+	mux.Handle("GET /api/certificates/{domain}", s.HandleCertificateRetrieveData)
+	mux.Handle("POST /api/certificates/{domain}/renew", s.HandleCertificateRenew)
 	return s
 }
 

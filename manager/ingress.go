@@ -50,7 +50,7 @@ func (i *IngressManager) RegisterRoute(ingress types.Ingress) error {
 	}
 
 	// kick-off challenge creation for ingress
-	i.CertificateManager.ChallengeCreate(ingress)
+	i.CertificateManager.ChallengeCreate(ingress.Domain, ingress.ChallengeType)
 	return nil
 }
 
