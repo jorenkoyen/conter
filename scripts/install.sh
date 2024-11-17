@@ -184,6 +184,9 @@ install() {
 
   # unpack the temp file to the bin dir, using sudo if required
   unpack "${archive}" "${BIN_DIR}" "${sudo}"
+
+  # install systemd service
+  conctl service install
 }
 
 # Currently supporting:
