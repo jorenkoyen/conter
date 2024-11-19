@@ -19,25 +19,23 @@ import (
 	"net/http"
 )
 
-var (
-	// LetsEncryptDirectoryUrl will point to the staging environment by default.
-	LetsEncryptDirectoryUrl = lego.LEDirectoryStaging
-	// InsecureDirectory informs the application that the ACME directory does not have valid TLS certificates.
-	InsecureDirectory = false
-)
-
 type CertificateManager struct {
 	logger *logger.Logger
 	config *db.Config
 	data   *db.Client
 	acme   *lego.Client
+
+	directory string
+	insecure  bool
 }
 
-func NewCertificateManger(database *db.Client, email string) *CertificateManager {
+func NewCertificateManger(database *db.Client, email string, directory string, insecure bool) *CertificateManager {
 	mgr := &CertificateManager{
-		logger: log.WithName("certificate-mgr"),
-		config: db.NewConfigDatabase(database),
-		data:   database,
+		logger:    log.WithName("certificate-mgr"),
+		config:    db.NewConfigDatabase(database),
+		data:      database,
+		directory: directory,
+		insecure:  insecure,
 	}
 
 	if email == "" {
@@ -63,7 +61,7 @@ func (c *CertificateManager) registration() *types.AcmeRegistration {
 // If the user is already registered no action will be undertaken.
 func (c *CertificateManager) init(email string, isRetry bool) *lego.Client {
 	user := c.registration()
-	if user.Email != email || !user.IsValid() {
+	if user.Email != email || !user.IsValid() || c.directory != c.config.GetAcmeDirectory() {
 		c.logger.Infof("Initializing ACME user for email=%s", email)
 		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
@@ -78,12 +76,12 @@ func (c *CertificateManager) init(email string, isRetry bool) *lego.Client {
 
 	// continue LEGO configuration
 	config := lego.NewConfig(user)
-	config.CADirURL = LetsEncryptDirectoryUrl
+	config.CADirURL = c.directory
 	config.UserAgent = fmt.Sprintf("conter/%s", version.Version)
 	config.HTTPClient = &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: InsecureDirectory,
+				InsecureSkipVerify: c.insecure,
 			},
 		},
 	}
@@ -108,6 +106,7 @@ func (c *CertificateManager) init(email string, isRetry bool) *lego.Client {
 		c.config.SetAcmeEmail(user.Email)
 		c.config.SetAcmePrivateKey(user.PrivateKey)
 		c.config.SetAcmeRegistration(user.Registration)
+		c.config.SetAcmeDirectory(c.directory) // persist directory URL to compare registration
 	} else {
 		// validate registration
 		reg, err := client.Registration.QueryRegistration()
