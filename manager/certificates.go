@@ -88,6 +88,7 @@ func (c *CertificateManager) init(email string, isRetry bool) *lego.Client {
 		},
 	}
 
+	c.logger.Tracef("Creating ACME client for directory=%s (email=%s)", config.CADirURL, user.Email)
 	client, err := lego.NewClient(config)
 	if err != nil {
 		c.logger.Fatalf("Unable to create LEGO client: %v", err)

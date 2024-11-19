@@ -40,5 +40,5 @@ completed() {
 #fi
 
 # give warning to cleanup directories
-warning "Remove ${UNDERLINE}${DATA_DIR}${NO_UNDERLINE} to delete application data"
-warning "Remove ${UNDERLINE}${CONFIG_DIR}${NO_UNDERLINE} to delete configuration files"
+warn "Remove ${UNDERLINE}${DATA_DIR}${NO_UNDERLINE} to delete application data"
+warn "Remove ${UNDERLINE}${CONFIG_DIR}${NO_UNDERLINE} to delete configuration files"
