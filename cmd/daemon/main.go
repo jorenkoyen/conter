@@ -78,9 +78,7 @@ func run(ctx context.Context, args []string) error {
 	defer dckr.Close()
 
 	// create certificate manager
-	manager.LetsEncryptDirectoryUrl = config.Acme.DirectoryUrl
-	manager.InsecureDirectory = config.Acme.Insecure
-	certificateManager := manager.NewCertificateManger(database, config.Acme.Email)
+	certificateManager := manager.NewCertificateManger(database, config.Acme.Email, config.Acme.DirectoryUrl, config.Acme.Insecure)
 
 	// create ingress manager
 	ingressManager := manager.NewIngressManager()
