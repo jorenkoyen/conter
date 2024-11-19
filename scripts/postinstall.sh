@@ -17,6 +17,7 @@ CONFIG_DIR="/etc/conter"
 DATA_DIR="/var/lib/conter"
 CONFIG_FILE="$CONFIG_DIR/config.toml"
 SYSTEMD_FILE="/etc/systemd/system/conter.service"
+SYSTEMD_SERVICE="conter.service"
 BINARY_PATH=$(which conter)
 
 info() {
@@ -114,7 +115,8 @@ info "Reloading systemd daemon to apply changes."
 systemctl daemon-reload
 
 # enable and start systemd service
-systemctl enable --now ${SYSTEMD_FILE}
+info "Enabling and starting ${BLUE}${SYSTEMD_SERVICE}${NO_COLOR} systemd service"
+systemctl enable --now ${SYSTEMD_SERVICE}
 
 version=$(conter --version)
 completed "Conter has been successfully installed with version ${version}"

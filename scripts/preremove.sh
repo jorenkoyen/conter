@@ -14,8 +14,7 @@ NO_COLOR="$(tput sgr0 2>/dev/null || printf '')"
 # default configuration variables
 CONFIG_DIR="/etc/conter"
 DATA_DIR="/var/lib/conter"
-CONFIG_FILE="$CONFIG_DIR/config.toml"
-SYSTEMD_FILE="/etc/systemd/system/conter.service"
+SYSTEMD_SERVICE="conter.service"
 
 info() {
   printf '%s\n' "${BOLD}${GREY}>${NO_COLOR} $*"
@@ -34,9 +33,11 @@ completed() {
 }
 
 # stop systemctl daemon
-info "Stopping systemd service at ${BLUE}${SYSTEMD_FILE}${NO_COLOR}"
-systemctl stop ${SYSTEMD_FILE}
-systemctl disable ${SYSTEMD_FILE}
+if systemctl is-active --quiet ${SYSTEMD_SERVICE}; then
+  info "Stopping systemd service at ${BLUE}${SYSTEMD_FILE}${NO_COLOR}"
+  systemctl stop ${SYSTEMD_SERVICE}
+  systemctl disable ${SYSTEMD_SERVICE}
+fi
 
 # give warning to cleanup directories
 warning "Remove ${UNDERLINE}${DATA_DIR}${NO_UNDERLINE} to delete application data"
