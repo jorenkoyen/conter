@@ -40,7 +40,12 @@ func service() *cli.Command {
 			{
 				Name:   "status",
 				Usage:  "Show the current status of the Conter service",
-				Action: statusCheckHandler,
+				Action: serviceStatusHandler,
+			},
+			{
+				Name:   "restart",
+				Usage:  "Restarts the daemon of the Conter service",
+				Action: serviceRestartHandler,
 			},
 		},
 	}
@@ -57,8 +62,8 @@ func serviceLogsHandler(c *cli.Context) error {
 	}
 
 	cmd := exec.Command("journalctl", args...)
-	cmd.Stdout = os.Stdout // Redirects the command's stdout to the program's stdout
-	cmd.Stderr = os.Stderr // Redirects the command's stderr to the program's stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
 	err := cmd.Run()
 	if err != nil {
@@ -67,11 +72,25 @@ func serviceLogsHandler(c *cli.Context) error {
 	return nil
 }
 
-// statusCheckHandler runs `systemctl status` for the service and outputs the content to stdout
-func statusCheckHandler(c *cli.Context) error {
+// serviceStatusHandler runs `systemctl status` for the service and outputs the content to stdout
+func serviceStatusHandler(c *cli.Context) error {
 	cmd := exec.Command("systemctl", "status", ServiceName)
-	cmd.Stdout = os.Stdout // Redirects the command's stdout to the program's stdout
-	cmd.Stderr = os.Stderr // Redirects the command's stderr to the program's stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to get status of service %s: %v", ServiceName, err)
+	}
+	return nil
+}
+
+// serviceRestartHandler runs `systemctl restart` for the service.
+func serviceRestartHandler(c *cli.Context) error {
+	cmd := exec.Command("systemctl", "restart", ServiceName)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 
 	err := cmd.Run()
 	if err != nil {
