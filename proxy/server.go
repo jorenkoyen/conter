@@ -40,6 +40,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Scheme != "https" {
 		// always try to upgrade to HTTPS before continuing
+		s.logger.Debugf("Incoming HTTP request from ip=%s redirecting to HTTPS (url=%s)", r.RemoteAddr, r.URL)
 		http.RedirectHandler(RewriteToHTTPS(r.URL), http.StatusMovedPermanently)
 		return
 	}
