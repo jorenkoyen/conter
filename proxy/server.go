@@ -30,15 +30,17 @@ func NewServer() *Server {
 	}
 }
 
-// SetLogLevel overrides the log level for the reverse proxy logger.
-func (s *Server) SetLogLevel(l logger.Level) {
-	s.logger.SetLogLevel(l)
-}
-
 // ServeHTTP will route the HTTP request through to the desired proxy.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.IsAcmeChallenge(r) {
+		// ACME is allowed on plain HTTP
 		s.HandleAcmeChallenge(w, r)
+		return
+	}
+
+	if r.URL.Scheme != "https" {
+		// always try to upgrade to HTTPS before continuing
+		http.RedirectHandler(RewriteToHTTPS(r.URL), http.StatusMovedPermanently)
 		return
 	}
 
@@ -60,29 +62,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// proxy request
 	s.logger.Tracef("Routing through request to endpoint=%s (service=%s, method=%s, path=%s)", route.TargetEndpoint, route.TargetService, r.Method, r.URL.Path)
 	proxy.ServeHTTP(w, r)
-}
-
-func (s *Server) createProxyTarget(ingress *types.Ingress) (*httputil.ReverseProxy, error) {
-	target, err := url.Parse(fmt.Sprintf("http://%s", ingress.TargetEndpoint))
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a reverse proxy pointing to the target URL
-	proxy := httputil.NewSingleHostReverseProxy(target)
-
-	proxy.ModifyResponse = func(r *http.Response) error {
-		// overwrite Server header
-		r.Header.Set("Server", fmt.Sprintf("conter/%s", version.Version))
-		return nil
-	}
-
-	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		s.logger.Errorf("Failed to route request to service=%s: %v", ingress.TargetService, err)
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}
-
-	return proxy, nil
 }
 
 // ListenForHTTP will start listening for incoming HTTP request that require to be proxied through.
@@ -129,6 +108,29 @@ func (s *Server) ListenForHTTPS(ctx context.Context, addr string) error {
 	// create HTTPS server
 	s.logger.Debugf("Starting HTTPS proxy on address=%s", addr)
 	return server.ListenAndServeTLS("", "")
+}
+
+func (s *Server) createProxyTarget(ingress *types.Ingress) (*httputil.ReverseProxy, error) {
+	target, err := url.Parse(fmt.Sprintf("http://%s", ingress.TargetEndpoint))
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a reverse proxy pointing to the target URL
+	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	proxy.ModifyResponse = func(r *http.Response) error {
+		// overwrite Server header
+		r.Header.Set("Server", fmt.Sprintf("conter/%s", version.Version))
+		return nil
+	}
+
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		s.logger.Errorf("Failed to route request to service=%s: %v", ingress.TargetService, err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
+
+	return proxy, nil
 }
 
 // getCertificate handles the retrieval of the TLS certificate based on the SNI of the server.
