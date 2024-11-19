@@ -18,11 +18,6 @@ import (
 	defaultLog "log"
 )
 
-const (
-	AddressHTTP  = "0.0.0.0:80"
-	AddressHTTPS = "0.0.0.0:443"
-)
-
 type Server struct {
 	logger             *logger.Logger
 	IngressManager     *manager.IngressManager
@@ -35,15 +30,18 @@ func NewServer() *Server {
 	}
 }
 
-// SetLogLevel overrides the log level for the reverse proxy logger.
-func (s *Server) SetLogLevel(l logger.Level) {
-	s.logger.SetLogLevel(l)
-}
-
 // ServeHTTP will route the HTTP request through to the desired proxy.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.IsAcmeChallenge(r) {
+		// ACME is allowed on plain HTTP
 		s.HandleAcmeChallenge(w, r)
+		return
+	}
+
+	if r.TLS == nil {
+		// always try to upgrade to HTTPS before continuing
+		s.logger.Debugf("Incoming HTTP request from ip=%s redirecting to HTTPS (host=%s, url=%s)", r.RemoteAddr, r.Host, r.RequestURI)
+		http.Redirect(w, r, RewriteToHTTPS(r.Host, r.RequestURI), http.StatusMovedPermanently)
 		return
 	}
 
@@ -67,6 +65,52 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	proxy.ServeHTTP(w, r)
 }
 
+// ListenForHTTP will start listening for incoming HTTP request that require to be proxied through.
+func (s *Server) ListenForHTTP(ctx context.Context, addr string) error {
+	server := &http.Server{
+		Addr:     addr,
+		Handler:  s,
+		ErrorLog: defaultLog.New(io.Discard, "", 0),
+	}
+
+	go func() {
+		<-ctx.Done()
+		s.logger.Trace("Gracefully shutting down HTTP proxy")
+		if err := server.Shutdown(context.Background()); err != nil {
+			s.logger.Errorf("Failed to shutdown server: %v", err)
+		}
+	}()
+
+	// create HTTP server
+	s.logger.Debugf("Starting HTTP proxy on address=%s", addr)
+	return server.ListenAndServe()
+}
+
+// ListenForHTTPS will start listening for incoming HTTPS requests that required to be proxied through.
+func (s *Server) ListenForHTTPS(ctx context.Context, addr string) error {
+	server := &http.Server{
+		Addr:    addr,
+		Handler: s,
+		TLSConfig: &tls.Config{
+			MinVersion:     tls.VersionTLS12,
+			GetCertificate: s.getCertificate,
+		},
+		ErrorLog: defaultLog.New(io.Discard, "", 0),
+	}
+
+	go func() {
+		<-ctx.Done()
+		s.logger.Trace("Gracefully shutting down HTTPS proxy")
+		if err := server.Shutdown(context.Background()); err != nil {
+			s.logger.Errorf("Failed to shutdown server: %v", err)
+		}
+	}()
+
+	// create HTTPS server
+	s.logger.Debugf("Starting HTTPS proxy on address=%s", addr)
+	return server.ListenAndServeTLS("", "")
+}
+
 func (s *Server) createProxyTarget(ingress *types.Ingress) (*httputil.ReverseProxy, error) {
 	target, err := url.Parse(fmt.Sprintf("http://%s", ingress.TargetEndpoint))
 	if err != nil {
@@ -88,52 +132,6 @@ func (s *Server) createProxyTarget(ingress *types.Ingress) (*httputil.ReversePro
 	}
 
 	return proxy, nil
-}
-
-// ListenForHTTP will start listening for incoming HTTP request that require to be proxied through.
-func (s *Server) ListenForHTTP(ctx context.Context) error {
-	server := &http.Server{
-		Addr:     AddressHTTP,
-		Handler:  s,
-		ErrorLog: defaultLog.New(io.Discard, "", 0),
-	}
-
-	go func() {
-		<-ctx.Done()
-		s.logger.Trace("Gracefully shutting down HTTP proxy")
-		if err := server.Shutdown(context.Background()); err != nil {
-			s.logger.Errorf("Failed to shutdown server: %v", err)
-		}
-	}()
-
-	// create HTTP server
-	s.logger.Debugf("Starting HTTP proxy on address=%s", AddressHTTP)
-	return server.ListenAndServe()
-}
-
-// ListenForHTTPS will start listening for incoming HTTPS requests that required to be proxied through.
-func (s *Server) ListenForHTTPS(ctx context.Context) error {
-	server := &http.Server{
-		Addr:    AddressHTTPS,
-		Handler: s,
-		TLSConfig: &tls.Config{
-			MinVersion:     tls.VersionTLS12,
-			GetCertificate: s.getCertificate,
-		},
-		ErrorLog: defaultLog.New(io.Discard, "", 0),
-	}
-
-	go func() {
-		<-ctx.Done()
-		s.logger.Trace("Gracefully shutting down HTTPS proxy")
-		if err := server.Shutdown(context.Background()); err != nil {
-			s.logger.Errorf("Failed to shutdown server: %v", err)
-		}
-	}()
-
-	// create HTTPS server
-	s.logger.Debugf("Starting HTTPS proxy on address=%s", AddressHTTPS)
-	return server.ListenAndServeTLS("", "")
 }
 
 // getCertificate handles the retrieval of the TLS certificate based on the SNI of the server.

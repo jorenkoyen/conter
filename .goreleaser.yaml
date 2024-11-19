@@ -47,6 +47,19 @@ archives:
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: conter_{{ .Os }}_{{ .Arch }}
 
+nfpms:
+  - package_name: conter
+    license: Apache 2.0
+    builds:
+      - daemon
+      - cli
+    description: A minimal container management system for small scale web deployments
+    formats:
+      - rpm
+    scripts:
+      postinstall: "scripts/postinstall.sh"
+      preremove: "scripts/preremove.sh"
+
 changelog:
   sort: asc
   filters:

@@ -3,6 +3,7 @@ module github.com/jorenkoyen/conter
 go 1.23.2
 
 require (
+	github.com/BurntSushi/toml v1.4.0
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/go-acme/lego/v4 v4.19.2

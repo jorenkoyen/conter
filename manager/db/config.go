@@ -14,6 +14,7 @@ var (
 	KeyAcmeEmail        = []byte("acme.email")
 	KeyAcmePrivateKey   = []byte("acme.private_key")
 	KeyAcmeRegistration = []byte("acme.registration")
+	KeyAcmeDirectory    = []byte("acme.directory")
 )
 
 type Config struct {
@@ -130,14 +131,34 @@ func (c *Config) SetAcmeRegistration(registration *registration.Resource) {
 	}
 }
 
+// SetAcmeDirectory will persist the directory URL used during the user registration process.
+func (c *Config) SetAcmeDirectory(directory string) {
+	err := c.client.setConfigContent(KeyAcmeDirectory, []byte(directory))
+	if err != nil {
+		log.Panicf("failed to set content for ACME directory: %v", err)
+	}
+}
+
+// GetAcmeDirectory will return the directory used when registering the user.
+func (c *Config) GetAcmeDirectory() string {
+	content, err := c.client.getConfigContent(KeyAcmeDirectory)
+	if err != nil {
+		return ""
+	}
+	return string(content)
+}
+
 func (c *Config) ClearAcme() {
 	if err := c.client.removeConfigContent(KeyAcmeEmail); err != nil {
-		log.Panicf("Faield to remove ACME email: %v", err)
+		log.Panicf("Failed to remove ACME email: %v", err)
 	}
 	if err := c.client.removeConfigContent(KeyAcmeRegistration); err != nil {
-		log.Panicf("Faield to remove ACME registration: %v", err)
+		log.Panicf("Failed to remove ACME registration: %v", err)
 	}
 	if err := c.client.removeConfigContent(KeyAcmePrivateKey); err != nil {
-		log.Panicf("Faield to remove ACME private key: %v", err)
+		log.Panicf("Failed to remove ACME private key: %v", err)
+	}
+	if err := c.client.removeConfigContent(KeyAcmeDirectory); err != nil {
+		log.Panicf("Failed to remove ACME directory: %v", err)
 	}
 }

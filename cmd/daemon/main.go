@@ -24,18 +24,35 @@ import (
 	defaultLog "log"
 )
 
-func run(ctx context.Context, args []string) error {
+func init() {
 	// disable default 'log' -> lego uses this internally
 	legolog.Logger = defaultLog.New(io.Discard, "", defaultLog.LstdFlags)
+}
 
-	// parse CLI options
-	opts, err := ParseOptions(args)
+func run(ctx context.Context, args []string) error {
+	opts, err := Parse(args)
 	if err != nil {
-		return fmt.Errorf("failed to parse configuration: %w", err)
+		return err
+	}
+
+	if opts.Version {
+		fmt.Fprintln(os.Stdout, version.Version)
+		return nil
+	}
+
+	// read config
+	config, err := ReadConfigFromOpts(opts)
+	if err != nil {
+		return err
+	}
+
+	// exit if validate config only
+	if opts.ValidateConfig {
+		return nil
 	}
 
 	var formatter logger.Formatter = logger.NewTextFormatter()
-	if opts.Log.Pretty {
+	if config.LogPretty {
 		// override formatter with pretty formatter
 		formatter = logger.NewPrettyFormatter()
 	}
@@ -43,16 +60,8 @@ func run(ctx context.Context, args []string) error {
 	log.SetDefaultLogger(logger.NewWithOptions(logger.Options{
 		Writer:    os.Stdout,
 		Formatter: formatter,
-		Level:     logger.ParseLevel(opts.Log.Level),
+		Level:     logger.ParseLevel(config.LogLevel),
 	}))
-
-	// validate options
-	if opts.ACME.Email == "" {
-		return errors.New("ACME email address is required when requesting certificates")
-	}
-	if opts.ACME.Directory == "" {
-		return errors.New("ACME directory URL is required")
-	}
 
 	log.Infof("Starting conter @ version=%s [ go=%s arch=%s ]", version.Version, version.GoVersion, runtime.GOARCH)
 
@@ -69,9 +78,9 @@ func run(ctx context.Context, args []string) error {
 	defer dckr.Close()
 
 	// create certificate manager
-	manager.LetsEncryptDirectoryUrl = opts.ACME.Directory
-	manager.InsecureDirectory = opts.ACME.Insecure
-	certificateManager := manager.NewCertificateManger(database, opts.ACME.Email)
+	manager.LetsEncryptDirectoryUrl = config.Acme.DirectoryUrl
+	manager.InsecureDirectory = config.Acme.Insecure
+	certificateManager := manager.NewCertificateManger(database, config.Acme.Email)
 
 	// create ingress manager
 	ingressManager := manager.NewIngressManager()
@@ -91,7 +100,7 @@ func run(ctx context.Context, args []string) error {
 
 	// start HTTP proxy
 	go func() {
-		err := rp.ListenForHTTP(ctx)
+		err := rp.ListenForHTTP(ctx, config.Proxy.HttpListenAddress)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("Failed to start HTTP proxy: %v", err)
 		}
@@ -99,14 +108,14 @@ func run(ctx context.Context, args []string) error {
 
 	// start HTTPS proxy
 	go func() {
-		err := rp.ListenForHTTPS(ctx)
+		err := rp.ListenForHTTPS(ctx, config.Proxy.HttpsListenAddress)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("Failed to start HTTPS proxy: %v", err)
 		}
 	}()
 
 	// create HTTP server
-	srv := server.NewServer(opts.HTTP.ManagementAddress)
+	srv := server.NewServer(config.ListenAddress)
 	srv.ContainerManager = containerManager
 	srv.CertificateManager = certificateManager
 
