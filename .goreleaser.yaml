@@ -57,6 +57,7 @@ nfpms:
       - rpm
     scripts:
       postinstall: "scripts/postinstall.sh"
+      preremove: "scripts/preremove.sh"
 
 changelog:
   sort: asc

@@ -19,7 +19,6 @@ CONFIG_FILE="$CONFIG_DIR/config.toml"
 SYSTEMD_FILE="/etc/systemd/system/conter.service"
 BINARY_PATH=$(which conter)
 
-
 info() {
   printf '%s\n' "${BOLD}${GREY}>${NO_COLOR} $*"
 }
@@ -113,6 +112,10 @@ chmod 644 "$SYSTEMD_FILE"
 # Reload systemd to acknowledge the new service file
 info "Reloading systemd daemon to apply changes."
 systemctl daemon-reload
+
+# enable and start systemd service
+systemctl enable ${SYSTEMD_FILE}
+systemctl start ${SYSTEMD_FILE}
 
 version=$(conter --version)
 completed "Conter has been successfully installed with version ${version}"
