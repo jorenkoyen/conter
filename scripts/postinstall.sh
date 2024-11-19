@@ -116,7 +116,7 @@ systemctl daemon-reload
 
 # enable and start systemd service
 info "Enabling and starting ${BLUE}${SYSTEMD_SERVICE}${NO_COLOR} systemd service"
-systemctl enable --now ${SYSTEMD_SERVICE}
+systemctl enable --quiet --now ${SYSTEMD_SERVICE}
 
 version=$(conter --version)
 completed "Conter has been successfully installed with version ${version}"
