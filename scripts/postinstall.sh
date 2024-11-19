@@ -114,8 +114,7 @@ info "Reloading systemd daemon to apply changes."
 systemctl daemon-reload
 
 # enable and start systemd service
-systemctl enable ${SYSTEMD_FILE}
-systemctl start ${SYSTEMD_FILE}
+systemctl enable --now ${SYSTEMD_FILE}
 
 version=$(conter --version)
 completed "Conter has been successfully installed with version ${version}"
