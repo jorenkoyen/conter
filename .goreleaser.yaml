@@ -49,6 +49,7 @@ archives:
 
 nfpms:
   - package_name: conter
+    license: Apache 2.0
     builds:
       - daemon
       - cli
