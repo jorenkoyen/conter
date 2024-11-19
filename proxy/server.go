@@ -18,11 +18,6 @@ import (
 	defaultLog "log"
 )
 
-const (
-	AddressHTTP  = "0.0.0.0:80"
-	AddressHTTPS = "0.0.0.0:443"
-)
-
 type Server struct {
 	logger             *logger.Logger
 	IngressManager     *manager.IngressManager
@@ -91,9 +86,9 @@ func (s *Server) createProxyTarget(ingress *types.Ingress) (*httputil.ReversePro
 }
 
 // ListenForHTTP will start listening for incoming HTTP request that require to be proxied through.
-func (s *Server) ListenForHTTP(ctx context.Context) error {
+func (s *Server) ListenForHTTP(ctx context.Context, addr string) error {
 	server := &http.Server{
-		Addr:     AddressHTTP,
+		Addr:     addr,
 		Handler:  s,
 		ErrorLog: defaultLog.New(io.Discard, "", 0),
 	}
@@ -107,14 +102,14 @@ func (s *Server) ListenForHTTP(ctx context.Context) error {
 	}()
 
 	// create HTTP server
-	s.logger.Debugf("Starting HTTP proxy on address=%s", AddressHTTP)
+	s.logger.Debugf("Starting HTTP proxy on address=%s", addr)
 	return server.ListenAndServe()
 }
 
 // ListenForHTTPS will start listening for incoming HTTPS requests that required to be proxied through.
-func (s *Server) ListenForHTTPS(ctx context.Context) error {
+func (s *Server) ListenForHTTPS(ctx context.Context, addr string) error {
 	server := &http.Server{
-		Addr:    AddressHTTPS,
+		Addr:    addr,
 		Handler: s,
 		TLSConfig: &tls.Config{
 			MinVersion:     tls.VersionTLS12,
@@ -132,7 +127,7 @@ func (s *Server) ListenForHTTPS(ctx context.Context) error {
 	}()
 
 	// create HTTPS server
-	s.logger.Debugf("Starting HTTPS proxy on address=%s", AddressHTTPS)
+	s.logger.Debugf("Starting HTTPS proxy on address=%s", addr)
 	return server.ListenAndServeTLS("", "")
 }
 

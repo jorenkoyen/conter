@@ -47,6 +47,17 @@ archives:
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: conter_{{ .Os }}_{{ .Arch }}
 
+nfpms:
+  - package_name: conter
+    builds:
+      - daemon
+      - cli
+    description: A minimal container management system for small scale web deployments
+    formats:
+      - rpm
+    scripts:
+      postinstall: "scripts/postinstall.sh"
+
 changelog:
   sort: asc
   filters:

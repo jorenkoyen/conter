@@ -40,8 +40,12 @@ func NewCertificateManger(database *db.Client, email string) *CertificateManager
 		data:   database,
 	}
 
-	// check if user is initialized (if not already done)
-	mgr.acme = mgr.init(email, false)
+	if email == "" {
+		mgr.logger.Warningf("No ACME email address set, please update configuration before requesting certificates")
+	} else {
+		// check if user is initialized (if not already done)
+		mgr.acme = mgr.init(email, false)
+	}
 
 	return mgr
 }
@@ -153,6 +157,11 @@ func (c *CertificateManager) Authorize(domain string, token string) (string, err
 
 // ChallengeCreate will create a new challenge request for the ingress domain.
 func (c *CertificateManager) ChallengeCreate(domain string, challenge types.ChallengeType) {
+	if c.acme == nil {
+		c.logger.Errorf("Unable to request certificate for domain=%s, ACME email is not configured", domain)
+		return
+	}
+
 	if challenge == types.ChallengeTypeNone {
 		c.logger.Tracef("Ignoring challenge creation for domain=%s", domain)
 		return
