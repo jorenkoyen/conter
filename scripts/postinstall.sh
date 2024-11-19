@@ -66,9 +66,9 @@ log_level       = "info"
 listen_address  = "127.0.0.1:6440"
 
 [acme]
-email     = ""
-directory = "https://acme-staging-v02.api.letsencrypt.org/directory"
-insecure  = false
+email         = ""
+directory_url = "https://acme-staging-v02.api.letsencrypt.org/directory"
+insecure      = false
 
 [data]
 directory = "$DATA_DIR"
