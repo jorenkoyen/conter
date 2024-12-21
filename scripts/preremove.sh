@@ -33,11 +33,11 @@ completed() {
 }
 
 # stop systemctl daemon
-#if systemctl is-active --quiet ${SYSTEMD_SERVICE}; then
-#  info "Stopping systemd service ${BLUE}${SYSTEMD_SERVICE}${NO_COLOR}"
-#  systemctl stop ${SYSTEMD_SERVICE}
-#  systemctl disable ${SYSTEMD_SERVICE}
-#fi
+if systemctl is-active --quiet ${SYSTEMD_SERVICE}; then
+  info "Stopping systemd service ${BLUE}${SYSTEMD_SERVICE}${NO_COLOR}"
+  systemctl stop ${SYSTEMD_SERVICE}
+  systemctl disable ${SYSTEMD_SERVICE}
+fi
 
 # give warning to cleanup directories
 warn "Remove ${UNDERLINE}${DATA_DIR}${NO_UNDERLINE} to delete application data"
