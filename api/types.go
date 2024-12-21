@@ -76,5 +76,6 @@ type ProjectApplyCommand struct {
 		ContainerPort int                 `json:"container_port"`
 		ChallengeType types.ChallengeType `json:"challenge_type"`
 		Quota         types.Quota         `json:"quota"`
+		Volumes       []types.Volume      `json:"volumes"`
 	} `json:"services"`
 }
