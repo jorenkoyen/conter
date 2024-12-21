@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	DataDirectory = "/var/lib/conter"
-	DataFileName  = "app.db"
+	DataFileName = "app.db"
 )
 
 var (
@@ -34,10 +33,10 @@ type Client struct {
 }
 
 // NewClient will create a new database client for handling operations.
-func NewClient() *Client {
+func NewClient(directory string) *Client {
 	l := log.WithName("database")
 
-	path := filepath.Join(DataDirectory, DataFileName)
+	path := filepath.Join(directory, DataFileName)
 	db, err := bbolt.Open(path, 0600, &bbolt.Options{Timeout: time.Second * 2})
 	if err != nil {
 		l.Fatalf("Failed to create new database client: %v", err)

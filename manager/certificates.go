@@ -190,8 +190,7 @@ func (c *CertificateManager) ChallengeCreate(domain string, challenge types.Chal
 			return
 		}
 
-		c.logger.Tracef("Successfully obtained certificates for domain=%s (uri=%s)", domain, resource.CertURL)
-
+		c.logger.Infof("Successfully obtained certificates for domain=%s (uri=%s)", domain, resource.CertURL)
 		cert := &types.Certificate{
 			Certificate:   base64.StdEncoding.EncodeToString(resource.Certificate),
 			Key:           base64.StdEncoding.EncodeToString(resource.PrivateKey),

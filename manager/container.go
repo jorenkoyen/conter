@@ -9,6 +9,7 @@ import (
 	"github.com/jorenkoyen/conter/manager/types"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
+	"strings"
 )
 
 type Container struct {
@@ -38,6 +39,7 @@ type ApplyProjectOptions struct {
 		Environment   map[string]string   `json:"environment"`
 		IngressDomain string              `json:"ingress_domain"`
 		ContainerPort int                 `json:"container_port"`
+		Volumes       []types.Volume      `json:"volumes"`
 		ChallengeType types.ChallengeType `json:"challenge_type"`
 		Quota         types.Quota         `json:"quota"`
 	} `json:"services"`
@@ -90,6 +92,29 @@ func (opts *ApplyProjectOptions) validate() *types.ValidationError {
 				err.Appendf(prefix+"quota.memory_limit", "The minimum memory limit is 128MB")
 			}
 		}
+
+		// check volumes
+		if len(service.Volumes) > 0 {
+			for j, volume := range service.Volumes {
+				volumePrefix := fmt.Sprintf("%svolumes[%d].", prefix, j)
+
+				if volume.Name == "" {
+					err.Append(volumePrefix+"name", "Volume name is required")
+				}
+
+				if strings.Contains(volume.Name, " ") {
+					err.Append(volumePrefix+"name", "Volume name must not contain spaces")
+				}
+
+				if volume.Path == "" {
+					err.Append(volumePrefix+"path", "Volume path is required")
+				}
+
+				if !strings.HasPrefix(volume.Path, "/") {
+					err.Append(volumePrefix+"path", "Volume path must be absolute")
+				}
+			}
+		}
 	}
 
 	if err.HasFailures() {
@@ -119,6 +144,7 @@ func (o *Container) ApplyProject(ctx context.Context, opts *ApplyProjectOptions)
 			Source:         service.Source,
 			Environment:    service.Environment,
 			Quota:          service.Quota,
+			Volumes:        service.Volumes,
 			Ingress: types.Ingress{
 				Domain:         service.IngressDomain,
 				ContainerPort:  service.ContainerPort,

@@ -63,6 +63,11 @@ func run(ctx context.Context, args []string) error {
 		Level:     logger.ParseLevel(config.LogLevel),
 	}))
 
+	// create data directory if not exists
+	if err = os.MkdirAll(config.Data.Directory, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create data directory: %w", err)
+	}
+
 	log.Infof("Starting conter @ version=%s [ go=%s arch=%s ]", version.Version, version.GoVersion, runtime.GOARCH)
 
 	// listen for ctrl+c notifies
@@ -70,11 +75,11 @@ func run(ctx context.Context, args []string) error {
 	defer cancel()
 
 	// create database client
-	database := db.NewClient()
+	database := db.NewClient(config.Data.Directory)
 	defer database.Close()
 
 	// create docker client
-	dckr := docker.NewClient()
+	dckr := docker.NewClient(config.Data.Directory)
 	defer dckr.Close()
 
 	// create certificate manager

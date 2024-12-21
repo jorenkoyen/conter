@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -13,6 +14,8 @@ import (
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 	"io"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -21,19 +24,27 @@ import (
 type Client struct {
 	logger *logger.Logger
 	docker client.APIClient
+
+	volumesDirectory string
 }
 
-func NewClient() *Client {
-	_logger := log.WithName("docker")
+func NewClient(directory string) *Client {
+	c := &Client{logger: log.WithName("docker")}
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		_logger.Fatalf("Failed to create docker client: %v", err)
+		c.logger.Fatalf("Failed to create docker client: %v", err)
+	} else {
+		c.docker = docker
 	}
 
-	return &Client{
-		logger: _logger,
-		docker: docker,
+	if !strings.HasPrefix(directory, "/") {
+		c.logger.Warningf("Resolving relative data directory to asbolute path for docker volume bindings")
+		cwd, _ := os.Getwd()
+		directory = filepath.Join(cwd, directory)
 	}
+
+	c.volumesDirectory = filepath.Join(directory, "volumes")
+	return c
 }
 
 type Network struct {
@@ -135,6 +146,24 @@ func (c *Client) CreateContainer(ctx context.Context, service types.Service, net
 		},
 	}
 
+	// create volume mounts
+	if len(service.Volumes) > 0 {
+		mounts := make([]mount.Mount, len(service.Volumes))
+
+		for i, volume := range service.Volumes {
+			mounts[i] = mount.Mount{
+				Type:   mount.TypeBind,
+				Target: volume.Path,
+				Source: filepath.Join(c.volumesDirectory, service.Ingress.TargetProject, service.Name, volume.Name),
+				BindOptions: &mount.BindOptions{
+					CreateMountpoint: true,
+				},
+			}
+		}
+
+		hostCfg.Mounts = mounts
+	}
+
 	if service.Quota.MemoryLimit > 0 {
 		hostCfg.Resources.Memory = ToBytes(service.Quota.MemoryLimit)
 	}
@@ -182,7 +211,7 @@ func (c *Client) RemoveContainer(ctx context.Context, containerId string) error 
 	c.logger.Tracef("Removing container with id=%s", containerId)
 	return c.docker.ContainerRemove(ctx, containerId, container.RemoveOptions{
 		Force:         true,
-		RemoveVolumes: false, // TODO: should we remove volumes?
+		RemoveVolumes: false,
 	})
 }
 
@@ -195,6 +224,7 @@ func (c *Client) PullImageIfNotExists(ctx context.Context, img string) error {
 		return nil
 	}
 
+	c.logger.Tracef("Pulling image with name=%s", img)
 	out, err := c.docker.ImagePull(ctx, img, image.PullOptions{})
 	if err != nil {
 		return err
@@ -256,6 +286,8 @@ func (c *Client) RemoveAllContainersForProject(ctx context.Context, project stri
 
 // Close will close the open connection to the docker daemon.
 func (c *Client) Close() error {
-	// TODO: implement
+	if c.docker != nil {
+		return c.docker.Close()
+	}
 	return nil
 }

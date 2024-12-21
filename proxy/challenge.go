@@ -15,13 +15,7 @@ func (s *Server) IsAcmeChallenge(r *http.Request) bool {
 // HandleAcmeChallenge will handle an incoming ACME request.
 func (s *Server) HandleAcmeChallenge(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimPrefix(r.URL.Path, AcmePrefix)
-	host := r.Host
-
-	// drop any port mappings from host
-	idx := strings.Index(host, ":")
-	if idx != -1 {
-		host = host[:idx]
-	}
+	host := ExtractDomain(r.Host)
 
 	s.logger.Debugf("Handling incoming ACME request for host=%s (token=%s)", host, token)
 	auth, err := s.CertificateManager.Authorize(host, token)

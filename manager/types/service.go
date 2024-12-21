@@ -17,6 +17,7 @@ type Service struct {
 	Environment    map[string]string `json:"environment"`
 	Quota          Quota             `json:"quota"`
 	Ingress        Ingress           `json:"ingress"`
+	Volumes        []Volume          `json:"volumes"`
 }
 
 type Source struct {
@@ -26,6 +27,11 @@ type Source struct {
 
 type Quota struct {
 	MemoryLimit int64 `json:"memory_limit"`
+}
+
+type Volume struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
 }
 
 // CalculateHash will calculate the configuration hash for the specified service.
@@ -52,6 +58,13 @@ func CalculateHash(s *Service) string {
 	// include 'quota'
 	if err := encoder.Encode(s.Quota); err != nil {
 		log.Panicf("Failed to hash quota: %v", err)
+	}
+
+	// include 'volumes'
+	if len(s.Volumes) > 0 {
+		if err := encoder.Encode(s.Volumes); err != nil {
+			log.Panicf("Failed to hash volumes: %v", err)
+		}
 	}
 
 	h := md5.New()

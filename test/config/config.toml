@@ -1,0 +1,15 @@
+log_level       = "trace"
+log_pretty      = true
+listen_address  = "127.0.0.1:6440"
+
+[acme]
+email         = "admin@example.com"
+directory_url = "https://127.0.0.1:14000/dir"
+insecure      = true
+
+[data]
+directory = "./data"
+
+[proxy]
+http_listen_address  = "0.0.0.0:8080"
+https_listen_address = "0.0.0.0:8443"

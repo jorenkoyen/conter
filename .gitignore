@@ -63,5 +63,5 @@ Temporary Items
 .idea/
 
 # ignore conter.db file (for local development)
-conter.db
+data/
 dist/
