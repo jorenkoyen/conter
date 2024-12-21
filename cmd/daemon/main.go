@@ -79,7 +79,7 @@ func run(ctx context.Context, args []string) error {
 	defer database.Close()
 
 	// create docker client
-	dckr := docker.NewClient(config.Data.Directory)
+	dckr := docker.NewClient()
 	defer dckr.Close()
 
 	// create certificate manager

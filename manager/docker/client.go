@@ -5,17 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/jorenkoyen/conter/manager/types"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 	"io"
-	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,11 +24,9 @@ import (
 type Client struct {
 	logger *logger.Logger
 	docker client.APIClient
-
-	volumesDirectory string
 }
 
-func NewClient(directory string) *Client {
+func NewClient() *Client {
 	c := &Client{logger: log.WithName("docker")}
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -37,13 +35,6 @@ func NewClient(directory string) *Client {
 		c.docker = docker
 	}
 
-	if !strings.HasPrefix(directory, "/") {
-		c.logger.Warningf("Resolving relative data directory to asbolute path for docker volume bindings")
-		cwd, _ := os.Getwd()
-		directory = filepath.Join(cwd, directory)
-	}
-
-	c.volumesDirectory = filepath.Join(directory, "volumes")
 	return c
 }
 
@@ -150,14 +141,16 @@ func (c *Client) CreateContainer(ctx context.Context, service types.Service, net
 	if len(service.Volumes) > 0 {
 		mounts := make([]mount.Mount, len(service.Volumes))
 
-		for i, volume := range service.Volumes {
+		for i, containerVolume := range service.Volumes {
+			volumeName, err := c.CreateVolumeIfNotExists(ctx, service, containerVolume.Name)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create volume for directory=%s: %w", containerVolume.Path, err)
+			}
+
 			mounts[i] = mount.Mount{
-				Type:   mount.TypeBind,
-				Target: volume.Path,
-				Source: filepath.Join(c.volumesDirectory, service.Ingress.TargetProject, service.Name, volume.Name),
-				BindOptions: &mount.BindOptions{
-					CreateMountpoint: true,
-				},
+				Type:   mount.TypeVolume,
+				Target: containerVolume.Path,
+				Source: volumeName,
 			}
 		}
 
@@ -282,6 +275,40 @@ func (c *Client) RemoveUnusedContainers(ctx context.Context, project string, exc
 // RemoveAllContainersForProject will purge all containers from the system that are linked to the given project.
 func (c *Client) RemoveAllContainersForProject(ctx context.Context, project string) (int, error) {
 	return c.RemoveUnusedContainers(ctx, project, []string{})
+}
+
+// CreateVolumeIfNotExists will create a docker volume for the service with the specified name.
+// If the volume already exists it will not create a new one.
+func (c *Client) CreateVolumeIfNotExists(ctx context.Context, service types.Service, name string) (string, error) {
+	volumeName := fmt.Sprintf("%s.%s-%s", service.Ingress.TargetProject, service.Name, name)
+
+	// Check if volume already exists
+	volumeListFilters := filters.NewArgs()
+	volumeListFilters.Add("name", volumeName)
+
+	listResponse, err := c.docker.VolumeList(ctx, volume.ListOptions{Filters: volumeListFilters})
+	if err != nil {
+		return "", fmt.Errorf("failed to list listResponse: %w", err)
+	}
+
+	if len(listResponse.Volumes) > 0 {
+		c.logger.Tracef("Volume with name=%s already exists, not creating", volumeName)
+		return listResponse.Volumes[0].Name, nil
+	}
+
+	// Create the volume if it doesn't exist
+	volumeConfig := volume.CreateOptions{
+		Name:   volumeName,
+		Labels: GenerateServiceLabels(service),
+	}
+
+	createResponse, err := c.docker.VolumeCreate(ctx, volumeConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to create volume: %w", err)
+	}
+
+	c.logger.Debugf("Created new volume with name=%s for service=%s", volumeName, service.Name)
+	return createResponse.Name, nil
 }
 
 // Close will close the open connection to the docker daemon.
