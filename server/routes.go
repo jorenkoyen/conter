@@ -102,6 +102,14 @@ func (s *Server) HandleProjectRetrieve(w http.ResponseWriter, r *http.Request) e
 							writer.KeyString("challenge", string(service.Ingress.ChallengeType))
 						})
 					}
+
+					if len(service.Volumes) > 0 {
+						writer.Array("volumes", func() {
+							for _, volume := range service.Volumes {
+								writer.Value(volume.Path)
+							}
+						})
+					}
 				})
 			}
 		})

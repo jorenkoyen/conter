@@ -179,6 +179,14 @@ func inspectProjectHandler(c *cli.Context) error {
 			fmt.Fprintf(writer, "    %s:\t%s\n", "Domain", s.Ingress.Domain)
 			fmt.Fprintf(writer, "    %s:\t%s\n", "Endpoint", s.Ingress.InternalEndpoint)
 		}
+
+		if len(s.Volumes) > 0 {
+			fmt.Fprintf(writer, "    %s:\n", "Volumes")
+			for _, volume := range s.Volumes {
+				fmt.Fprintf(writer, "     - %s\n", volume)
+			}
+		}
+
 		fmt.Fprintf(writer, "\n")
 	}
 

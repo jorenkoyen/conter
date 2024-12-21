@@ -90,6 +90,27 @@ func TestService_CalculateConfigurationHash(t *testing.T) {
 			t.Errorf("Hash should differ when container port values are different (hash=%s)", actual)
 		}
 	}
+
+	{
+		// with volumes
+		compare := new(Service)
+		compare.Name = base.Name
+		compare.Source.Type = base.Source.Type
+		compare.Source.URI = base.Source.URI
+		compare.Environment = base.Environment
+		compare.Volumes = []Volume{
+			{
+				Name: "absolute",
+				Path: "/root",
+			},
+		}
+
+		actual := CalculateHash(base)
+		calculated := CalculateHash(compare)
+		if actual == calculated {
+			t.Errorf("Hash should differ when volumes are defined (hash=%s)", actual)
+		}
+	}
 }
 
 func BenchmarkService_CalculateConfigurationHash(b *testing.B) {

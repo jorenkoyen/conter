@@ -55,9 +55,10 @@ type Project struct {
 }
 
 type Service struct {
-	Name    string `json:"name"`
-	Hash    string `json:"hash"`
-	Status  string `json:"status"`
+	Name    string   `json:"name"`
+	Hash    string   `json:"hash"`
+	Status  string   `json:"status"`
+	Volumes []string `json:"volumes"`
 	Ingress struct {
 		Domain           string              `json:"domain"`
 		InternalEndpoint string              `json:"internal"`
