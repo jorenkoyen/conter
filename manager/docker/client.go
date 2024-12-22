@@ -183,6 +183,11 @@ func (c *Client) CreateContainer(ctx context.Context, service types.Service, net
 				HostPort: strconv.Itoa(exposed),
 			}},
 		}
+
+		// make sure that port is exposed by container
+		cfg.ExposedPorts = nat.PortSet{
+			internal: struct{}{},
+		}
 	}
 
 	c.logger.Tracef("Creating new container with name=%s [ image=%s ]", service.ContainerName, service.ContainerImage)
