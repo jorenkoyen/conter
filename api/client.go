@@ -151,3 +151,8 @@ func (c *Client) ProjectApply(ctx context.Context, cmd ProjectApplyCommand) (*Pr
 func (c *Client) ProjectRemove(ctx context.Context, name string) error {
 	return c.do(ctx, http.MethodDelete, "/api/projects/"+name, nil, nil)
 }
+
+func (c *Client) ExecuteSystemTask(ctx context.Context, task Task) error {
+	endpoint := fmt.Sprintf("/api/system/%s", string(task))
+	return c.do(ctx, http.MethodPost, endpoint, nil, nil)
+}

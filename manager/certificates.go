@@ -22,6 +22,12 @@ import (
 	"time"
 )
 
+var (
+	// ExpiryCutOff is the duration until the expiry date until we will renew the certificate.
+	// This is currently set to 30 days, any certificate that will expire within 30 days will get renewed.
+	ExpiryCutOff = time.Minute * 60 * 24 * 30
+)
+
 type CertificateManager struct {
 	logger *logger.Logger
 	config *db.Config
@@ -261,4 +267,44 @@ func (c *CertificateManager) Get(domain string) *types.Certificate {
 // GetAll will retrieve all certificates currently known to the system.
 func (c *CertificateManager) GetAll() []types.Certificate {
 	return c.data.GetAllCertificates()
+}
+
+// Batch will actively run a batch job to clean up all certificates that are not referenced anymore.
+// It will also check if any certificates are up for renewal.
+func (c *CertificateManager) Batch() {
+	c.logger.Info("Starting batch job for certificate management")
+
+	certificates := c.GetAll()
+	for _, cert := range certificates {
+
+		if c.data.IsCertificateInUse(cert) {
+			// check if certificate is not yet expired
+			info, err := cert.Parse()
+			if err != nil {
+				c.logger.Errorf("Failed to parse certificate with id=%s: %v", cert.ID, err)
+				continue
+			}
+
+			if time.Now().Add(ExpiryCutOff).After(info.NotAfter) {
+				c.logger.Warningf("Certificate with id=%s will expiry within 30 days, renewing (expiry=%s)", cert.ID, info.NotAfter.String())
+				if err = c.ChallengeCreate(cert.Domains, cert.ChallengeType); err != nil {
+					c.logger.Errorf("Failed to create challenge for certificate with id=%s: %v", cert.ID, err)
+				} else {
+					c.logger.Infof("Successfully submitted challenge for renewing certificate with id=%s", cert.ID)
+				}
+			} else {
+				c.logger.Infof("Certificate with id=%s is still valid, not renewing (expiry=%s)", cert.ID, info.NotAfter.String())
+			}
+
+		} else {
+			// remove unused certificates from the system
+			c.logger.Infof("Certificate with id=%s is no longer in use, removing from system (domains=%s)", cert.ID, cert.Domains)
+			err := c.data.RemoveCertificateById(cert.ID)
+			if err != nil {
+				c.logger.Errorf("Failed to remove unused certificate with id=%s: %v", cert.ID, err)
+			}
+		}
+	}
+
+	c.logger.Info("Batch job for certificate management finished")
 }

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"github.com/jorenkoyen/conter/manager/types"
@@ -24,7 +25,8 @@ var (
 	BucketCertificates        = []byte("certificates")
 	BucketCertificateMappings = []byte("certificate-mappings")
 
-	ErrItemNotFound = errors.New("item not found")
+	ErrItemNotFound     = errors.New("item not found")
+	ErrCertificateInUse = errors.New("certificate in use")
 )
 
 // Client acts as the interface between to communicate with our database system.
@@ -295,6 +297,40 @@ func (c *Client) GetCertificate(domain string) (*types.Certificate, error) {
 	})
 
 	return certificate, err
+}
+
+// IsCertificateInUse will return true if the certificate is still being referenced by a mapping.
+func (c *Client) IsCertificateInUse(cert types.Certificate) bool {
+	err := c.bolt.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketCertificateMappings)
+		if bucket == nil {
+			// not in use anymore because we don't even have mappings
+			return nil
+		}
+
+		id := []byte(cert.ID)
+		return bucket.ForEach(func(k, v []byte) error {
+			if bytes.Equal(v, id) {
+				return ErrCertificateInUse
+			}
+
+			return nil
+		})
+	})
+
+	return errors.Is(err, ErrCertificateInUse)
+}
+
+// RemoveCertificateById will remove the certificate form the system with the matching ID.
+func (c *Client) RemoveCertificateById(id string) error {
+	return c.bolt.Update(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(BucketCertificates)
+		if bucket == nil {
+			return nil
+		}
+
+		return bucket.Delete([]byte(id))
+	})
 }
 
 // GetAllCertificates will return all certificates with the key being the domain name.

@@ -248,3 +248,19 @@ func (s *Server) HandleCertificateRenew(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusAccepted)
 	return nil
 }
+
+func (s *Server) HandleSystemTask(w http.ResponseWriter, r *http.Request) error {
+	task := r.PathValue("task")
+	if task == "" {
+		return errors.New("missing task parameter value")
+	}
+
+	if task == "batch_certificates" {
+		s.CertificateManager.Batch()
+	} else {
+		return errors.New("unable to handle task, unknown to system")
+	}
+
+	w.WriteHeader(http.StatusOK)
+	return nil
+}

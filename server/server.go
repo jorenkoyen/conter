@@ -40,6 +40,10 @@ func NewServer(addr string) *Server {
 	mux.Handle("GET /api/certificates", s.HandleCertificatesRetrieve)
 	mux.Handle("GET /api/certificates/{domain}", s.HandleCertificateRetrieveData)
 	mux.Handle("POST /api/certificates/{domain}/renew", s.HandleCertificateRenew)
+
+	// -- system
+	mux.Handle("GET /api/system/{task}", s.HandleSystemTask)
+
 	return s
 }
 

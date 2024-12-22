@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/jorenkoyen/conter/api"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -36,6 +37,11 @@ func certificate() *cli.Command {
 				Action:    inspectCertificateHandler,
 				Args:      true,
 				ArgsUsage: "[domain]",
+			},
+			{
+				Name:   "bach",
+				Usage:  "Run the certificate management batch command",
+				Action: batchCertificateHandler,
 			},
 		},
 	}
@@ -104,6 +110,21 @@ func renewCertificateHandler(c *cli.Context) error {
 	}
 
 	fmt.Fprintf(os.Stdout, "Certificate for %s is being renewed\n", domain)
+	return nil
+}
+
+func batchCertificateHandler(c *cli.Context) error {
+	client, err := clientFromContext(c)
+	if err != nil {
+		return err
+	}
+
+	err = client.ExecuteSystemTask(c.Context, api.TaskCertificateBatch)
+	if err != nil {
+		return fmt.Errorf("failed to execute system task: %w", err)
+	}
+
+	fmt.Fprintf(os.Stdout, "OK\n")
 	return nil
 }
 

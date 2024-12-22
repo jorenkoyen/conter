@@ -80,3 +80,9 @@ type ProjectApplyCommand struct {
 		Volumes       []types.Volume      `json:"volumes"`
 	} `json:"services"`
 }
+
+type Task string
+
+const (
+	TaskCertificateBatch Task = "batch_certificates"
+)
