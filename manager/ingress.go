@@ -58,7 +58,7 @@ func (i *IngressManager) RegisterRoute(ingress types.Ingress) error {
 	}
 
 	if i.CertificateManager.HasValidCertificate(ingress.Domains) {
-		i.logger.Infof("No requesting certificates for %s, already has valid certificates", ingress.String())
+		i.logger.Infof("Not requesting certificates for %s, already has valid certificates", ingress.String())
 		return nil
 	} else {
 		// start certificate creation

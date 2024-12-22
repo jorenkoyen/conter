@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"github.com/jorenkoyen/conter/manager"
 	"github.com/jorenkoyen/conter/manager/types"
@@ -144,6 +145,10 @@ func (s *Server) createProxyTarget(ingress *types.Ingress) (*httputil.ReversePro
 
 // getCertificate handles the retrieval of the TLS certificate based on the SNI of the server.
 func (s *Server) getCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	if hello.ServerName == "" {
+		return nil, errors.New("no mappings available without a domain")
+	}
+
 	cert := s.CertificateManager.Get(hello.ServerName)
 	if cert == nil {
 		// No certificate found, generate a self-signed certificate
@@ -152,7 +157,7 @@ func (s *Server) getCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, e
 			return nil, err
 		}
 
-		s.logger.Warningf("No certificate available, generated temporary self-signed certificate for domain=%s", hello.ServerName)
+		s.logger.Debugf("No certificate available, generated temporary self-signed certificate for domain=%s", hello.ServerName)
 		return selfSignedCert, nil
 	}
 
