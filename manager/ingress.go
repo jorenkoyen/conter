@@ -1,6 +1,7 @@
 package manager
 
 import (
+	"errors"
 	"fmt"
 	"github.com/jorenkoyen/conter/manager/db"
 	"github.com/jorenkoyen/conter/manager/types"
@@ -24,6 +25,15 @@ func NewIngressManager() *IngressManager {
 
 // RegisterRoute will register a new ingress route and complete the necessary actions to make it ready for use.
 func (i *IngressManager) RegisterRoute(ingress types.Ingress) error {
+	if len(ingress.Domains) == 0 {
+		i.logger.Debugf("No action required when registering routes for service=%s, not exposed", ingress.TargetService)
+		return nil
+	}
+
+	if ingress.TargetEndpoint == "" {
+		return errors.New("no endpoint available for registering route")
+	}
+
 	i.logger.Debugf("Registering route for %s (endpoint=%s, challenge=%s)", ingress.String(), ingress.TargetEndpoint, ingress.ChallengeType)
 
 	// check all domains linked to ingress
@@ -47,10 +57,16 @@ func (i *IngressManager) RegisterRoute(ingress types.Ingress) error {
 		return fmt.Errorf("failed to save ingress route: %w", err)
 	}
 
-	// start certificate creation
-	err = i.CertificateManager.ChallengeCreate(ingress.Domains, ingress.ChallengeType)
-	if err != nil {
-		return fmt.Errorf("failed to create certificates for %s", ingress.String())
+	if i.CertificateManager.HasValidCertificate(ingress.Domains) {
+		i.logger.Infof("No requesting certificates for %s, already has valid certificates", ingress.String())
+		return nil
+	} else {
+		// start certificate creation
+		i.logger.Infof("Requesting certificates for %s", ingress.String())
+		err = i.CertificateManager.ChallengeCreate(ingress.Domains, ingress.ChallengeType)
+		if err != nil {
+			return fmt.Errorf("failed to create certificates for %s", ingress.String())
+		}
 	}
 
 	return nil

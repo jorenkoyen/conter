@@ -242,20 +242,23 @@ func (o *Container) ApplyService(ctx context.Context, service types.Service, net
 
 			// reset target endpoint -> we have removed it.
 			service.Ingress.TargetEndpoint = ""
-
-		} else if !container.IsRunning() {
-			o.logger.Warningf("Container with id=%s for service=%s is not running, restarting", container.ID, service.Name)
-			err := o.Docker.StartContainer(ctx, container.ID)
-			if err != nil {
-				return nil, fmt.Errorf("unable to start container: %w", err)
+		} else {
+			if container.IsRunning() {
+				o.logger.Tracef("Services with name=%s is already running, no action required", service.Name)
+			} else {
+				o.logger.Warningf("Container with id=%s for service=%s is not running, restarting", container.ID, service.Name)
+				err := o.Docker.StartContainer(ctx, container.ID)
+				if err != nil {
+					return nil, fmt.Errorf("unable to start container: %w", err)
+				}
 			}
 
-			return &service, nil // no further action required.
-		} else {
-			// no action required
-			// -> configuration is matching
-			// -> container is running
-			o.logger.Tracef("Services with name=%s is already running, no action required", service.Name)
+			// make sure that routes are registered
+			err := o.IngressManager.RegisterRoute(service.Ingress)
+			if err != nil {
+				return nil, fmt.Errorf("failed to register routes: %w", err)
+			}
+
 			return &service, nil
 		}
 	}
@@ -274,15 +277,9 @@ func (o *Container) ApplyService(ctx context.Context, service types.Service, net
 
 	// service is configured to be exposed
 	service.Ingress.TargetEndpoint = container.Endpoint
-	if len(service.Ingress.Domains) > 0 {
-		if container.Endpoint == "" {
-			return nil, errors.New("no endpoint available for exposed service")
-		}
-
-		err = o.IngressManager.RegisterRoute(service.Ingress)
-		if err != nil {
-			return nil, fmt.Errorf("failed to register ingress route: %w", err)
-		}
+	err = o.IngressManager.RegisterRoute(service.Ingress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register ingress route: %w", err)
 	}
 
 	o.logger.Debugf("Successfully created container=%s for service=%s (project=%s)", container.ID, service.Name, service.Ingress.TargetProject)

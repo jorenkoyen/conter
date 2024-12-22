@@ -19,6 +19,7 @@ import (
 	"github.com/jorenkoyen/go-logger/log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type CertificateManager struct {
@@ -155,6 +156,27 @@ func (c *CertificateManager) Authorize(domain string, token string) (string, err
 	}
 
 	return challenge.Auth, nil
+}
+
+// HasValidCertificate will check if all the specified domains have a valid certificate that is not yet expired.
+func (c *CertificateManager) HasValidCertificate(domains []string) bool {
+	for _, domain := range domains {
+		cert := c.Get(domain)
+		if cert == nil {
+			return false
+		}
+
+		info, err := cert.Parse()
+		if err != nil {
+			return false
+		}
+
+		if time.Now().After(info.NotAfter) {
+			return false // expired
+		}
+	}
+
+	return true
 }
 
 // ChallengeCreate will create a new challenge request for the ingress domain.
