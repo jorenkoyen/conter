@@ -62,7 +62,7 @@ func (opts *ApplyProjectOptions) validate() *types.ValidationError {
 		prefix := fmt.Sprintf("services[%d].", i)
 
 		if service.Name == "" {
-			err.Append(prefix+"name", "Service name is required")
+			err.Append(prefix+"name", "Services name is required")
 		}
 
 		if service.Source.Type == "" {
@@ -227,7 +227,7 @@ func (o *Container) ApplyService(ctx context.Context, service types.Service, net
 	//	-> no action required, container already exists
 	container := o.Docker.FindContainer(ctx, service.ContainerName)
 	if container != nil {
-		o.logger.Debugf("Service with name=%s already exists, checking status (container_id=%s)", service.Name, container.ID)
+		o.logger.Debugf("Services with name=%s already exists, checking status (container_id=%s)", service.Name, container.ID)
 
 		// we should remap the endpoint here.
 		// docker decides what endpoint the container is exposed on
@@ -255,7 +255,7 @@ func (o *Container) ApplyService(ctx context.Context, service types.Service, net
 			// no action required
 			// -> configuration is matching
 			// -> container is running
-			o.logger.Tracef("Service with name=%s is already running, no action required", service.Name)
+			o.logger.Tracef("Services with name=%s is already running, no action required", service.Name)
 			return &service, nil
 		}
 	}
@@ -324,7 +324,7 @@ const (
 )
 
 type Status struct {
-	Service  []types.Service
+	Services []types.Service
 	statuses map[string]string
 }
 
@@ -344,14 +344,13 @@ func (o *Container) GetProjectStatus(ctx context.Context, project string) (*Stat
 		statuses: make(map[string]string),
 	}
 
-	status.Service = o.Database.GetServicesForProject(project)
-	if len(status.Service) == 0 {
+	status.Services = o.Database.GetServicesForProject(project)
+	if len(status.Services) == 0 {
 		return nil, errors.New("no services found")
 	}
 
 	// go over each service and inspect both ingress + container
-	for _, service := range status.Service {
-
+	for _, service := range status.Services {
 		container := o.Docker.FindContainer(ctx, service.ContainerName)
 		if container != nil {
 			if container.IsRunning() {
@@ -372,7 +371,7 @@ func (o *Container) IsProjectRunning(ctx context.Context, project string) bool {
 		return false
 	}
 
-	for _, service := range status.Service {
+	for _, service := range status.Services {
 		if status.GetState(service.Name) != StatusRunning {
 			return false
 		}

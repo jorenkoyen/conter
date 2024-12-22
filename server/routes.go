@@ -101,7 +101,7 @@ func (s *Server) HandleProjectRetrieve(w http.ResponseWriter, r *http.Request) e
 	writer.RootObject(func() {
 		writer.KeyString("project", name)
 		writer.Array("services", func() {
-			for _, service := range status.Service {
+			for _, service := range status.Services {
 				writer.ArrayObject(func() {
 					writer.KeyString("name", service.Name)
 					writer.KeyString("hash", service.Hash)

@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/docker/docker/api/types/container"
@@ -19,6 +20,11 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+)
+
+const (
+	SourceUsernameOption = "docker_username"
+	SourcePasswordOption = "docker_password"
 )
 
 type Client struct {
@@ -115,7 +121,7 @@ func (c *Client) FindContainer(ctx context.Context, name string) *Container {
 
 // CreateContainer will create the container based on the service configuration.
 func (c *Client) CreateContainer(ctx context.Context, service types.Service, net *Network) (*Container, error) {
-	err := c.PullImageIfNotExists(ctx, service.ContainerImage)
+	err := c.PullImageIfNotExists(ctx, service.ContainerImage, service.Source.Opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to pull image: %w", err)
 	}
@@ -209,7 +215,7 @@ func (c *Client) RemoveContainer(ctx context.Context, containerId string) error 
 }
 
 // PullImageIfNotExists will retrieve the image from the internet if it does not yet exist on the system.
-func (c *Client) PullImageIfNotExists(ctx context.Context, img string) error {
+func (c *Client) PullImageIfNotExists(ctx context.Context, img string, opts map[string]string) error {
 	_, _, err := c.docker.ImageInspectWithRaw(ctx, img)
 	if err == nil {
 		// image already exists no pull required.
@@ -218,7 +224,9 @@ func (c *Client) PullImageIfNotExists(ctx context.Context, img string) error {
 	}
 
 	c.logger.Tracef("Pulling image with name=%s", img)
-	out, err := c.docker.ImagePull(ctx, img, image.PullOptions{})
+	out, err := c.docker.ImagePull(ctx, img, image.PullOptions{
+		RegistryAuth: c.registryAuthFromOptions(opts),
+	})
 	if err != nil {
 		return err
 	}
@@ -230,6 +238,19 @@ func (c *Client) PullImageIfNotExists(ctx context.Context, img string) error {
 	}
 
 	return out.Close()
+}
+
+// registryAuthFromOptions will extract the base64 credentials based on the source options.
+func (c *Client) registryAuthFromOptions(opts map[string]string) string {
+	username := opts[SourceUsernameOption]
+	password := opts[SourcePasswordOption]
+
+	if username == "" || password == "" {
+		// not enough information to encode
+		return ""
+	}
+
+	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
 }
 
 // RemoveUnusedContainers will clean up all the containers for the project that are not mentioned in the excluded containers list.

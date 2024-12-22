@@ -21,8 +21,9 @@ type Service struct {
 }
 
 type Source struct {
-	Type string `json:"type"`
-	URI  string `json:"uri"`
+	Type string            `json:"type"`
+	URI  string            `json:"uri"`
+	Opts map[string]string `json:"opts"`
 }
 
 type Quota struct {
