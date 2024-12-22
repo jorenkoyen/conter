@@ -25,7 +25,7 @@ import (
 var (
 	// ExpiryCutOff is the duration until the expiry date until we will renew the certificate.
 	// This is currently set to 30 days, any certificate that will expire within 30 days will get renewed.
-	ExpiryCutOff = time.Minute * 60 * 24 * 30
+	ExpiryCutOff = time.Hour * 24 * 30
 )
 
 type CertificateManager struct {
