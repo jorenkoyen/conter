@@ -11,12 +11,14 @@ import (
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
+	"github.com/google/uuid"
 	"github.com/jorenkoyen/conter/manager/db"
 	"github.com/jorenkoyen/conter/manager/types"
 	"github.com/jorenkoyen/conter/version"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 	"net/http"
+	"strings"
 )
 
 type CertificateManager struct {
@@ -156,53 +158,67 @@ func (c *CertificateManager) Authorize(domain string, token string) (string, err
 }
 
 // ChallengeCreate will create a new challenge request for the ingress domain.
-func (c *CertificateManager) ChallengeCreate(domain string, challenge types.ChallengeType) {
+func (c *CertificateManager) ChallengeCreate(domains []string, challenge types.ChallengeType) error {
 	if c.acme == nil {
-		c.logger.Errorf("Unable to request certificate for domain=%s, ACME email is not configured", domain)
-		return
+		c.logger.Errorf("Unable to request certificate, ACME email is not configured")
+		return errors.New("ACME email is not configured")
 	}
 
 	if challenge == types.ChallengeTypeNone {
-		c.logger.Tracef("Ignoring challenge creation for domain=%s", domain)
-		return
+		c.logger.Tracef("Ignoring challenge creation for domains=%v", domains)
+		return nil
 	}
 
 	if challenge != types.ChallengeTypeHTTP {
-		c.logger.Errorf("Challenge type=%s is not supported", challenge)
-		return
+		c.logger.Errorf("Challenge type=%s is currently not supported", challenge)
+		return errors.New("challenge type not supported")
 	}
 
-	if c.data.GetDomainChallenge(domain) != nil {
-		c.logger.Infof("Challenge for domain=%s already exists, skipping", domain)
-		return
+	req := certificate.ObtainRequest{
+		Domains: []string{},
+		Bundle:  true,
+	}
+
+	// validate that no ongoing domain challenges are being done
+	for _, domain := range domains {
+		if c.data.GetDomainChallenge(domain) != nil {
+			c.logger.Infof("Challenge for domain=%s already exists, skipping", domain)
+		} else {
+			// append domain to obtain request
+			req.Domains = append(req.Domains, domain)
+		}
+	}
+
+	if len(req.Domains) == 0 {
+		c.logger.Warningf("All specified domain are already being challenge, no action required")
+		return nil
 	}
 
 	go func() {
-		req := certificate.ObtainRequest{
-			Domains: []string{domain},
-			Bundle:  true,
-		}
-
-		c.logger.Infof("Requesting certificates for domain=%s", domain)
+		c.logger.Infof("Requesting certificate bundle (domains=%s)", strings.Join(req.Domains, ","))
 		resource, err := c.acme.Certificate.Obtain(req)
 		if err != nil {
-			c.logger.Errorf("Failed to obtain certificates for domain=%s: %v", domain, err)
+			c.logger.Errorf("Failed to obtain certificates: %v (domains=%s)", err, strings.Join(req.Domains, ","))
 			return
 		}
 
-		c.logger.Infof("Successfully obtained certificates for domain=%s (uri=%s)", domain, resource.CertURL)
+		c.logger.Infof("Successfully obtained certificate bundle (domains=%s, uri=%s)", strings.Join(req.Domains, ","), resource.CertURL)
 		cert := &types.Certificate{
+			ID:            uuid.NewString(),
 			Certificate:   base64.StdEncoding.EncodeToString(resource.Certificate),
 			Key:           base64.StdEncoding.EncodeToString(resource.PrivateKey),
 			ChallengeType: challenge,
+			Domains:       req.Domains,
 		}
 
-		// persist certificate for domain
-		err = c.data.SetCertificate(domain, cert)
+		// persist the certificate for each domain
+		err = c.data.SetCertificate(cert)
 		if err != nil {
-			c.logger.Errorf("Failed to save certificate for domain=%s: %v", domain, err)
+			c.logger.Errorf("Failed to save certificate for: %v", err)
 		}
 	}()
+
+	return nil
 }
 
 // Get will retrieve the active certificate for the given domain if available.
@@ -221,6 +237,6 @@ func (c *CertificateManager) Get(domain string) *types.Certificate {
 }
 
 // GetAll will retrieve all certificates currently known to the system.
-func (c *CertificateManager) GetAll() map[string]*types.Certificate {
+func (c *CertificateManager) GetAll() []types.Certificate {
 	return c.data.GetAllCertificates()
 }

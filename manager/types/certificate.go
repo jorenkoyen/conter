@@ -39,9 +39,11 @@ type AcmeChallenge struct {
 }
 
 type Certificate struct {
+	ID            string        `json:"id"`
 	Key           string        `json:"key"`
 	Certificate   string        `json:"certificate"`
 	ChallengeType ChallengeType `json:"challenge_type"`
+	Domains       []string      `json:"domains"`
 }
 
 // CertificateBytes will return the bytes of the certificate.

@@ -29,8 +29,9 @@ func (e StatusError) Error() string {
 }
 
 type Certificate struct {
-	Domain    string              `json:"domain"`
+	ID        string              `json:"id"`
 	Challenge types.ChallengeType `json:"challenge"`
+	Domains   []string            `json:"domains"`
 	PEM       string              `json:"pem,omitempty"`
 	Meta      struct {
 		Subject            string    `json:"subject"`
@@ -60,7 +61,7 @@ type Service struct {
 	Status  string   `json:"status"`
 	Volumes []string `json:"volumes"`
 	Ingress struct {
-		Domain           string              `json:"domain"`
+		Domains          []string            `json:"domains"`
 		InternalEndpoint string              `json:"internal"`
 		ChallengeType    types.ChallengeType `json:"challenge"`
 	} `json:"ingress,omitempty"`
@@ -72,7 +73,7 @@ type ProjectApplyCommand struct {
 		Name          string              `json:"name"`
 		Source        types.Source        `json:"source"`
 		Environment   map[string]string   `json:"environment"`
-		IngressDomain string              `json:"ingress_domain"`
+		IngressDomain []string            `json:"ingress_domains"`
 		ContainerPort int                 `json:"container_port"`
 		ChallengeType types.ChallengeType `json:"challenge_type"`
 		Quota         types.Quota         `json:"quota"`

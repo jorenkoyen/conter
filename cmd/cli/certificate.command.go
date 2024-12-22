@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -63,7 +64,7 @@ func listCertificateHandler(c *cli.Context) error {
 
 	for _, cert := range certificates {
 		data := []string{
-			cert.Domain,
+			strings.Join(cert.Domains, ","),
 			string(cert.Challenge),
 			cert.Meta.Expiry.Format(time.RFC1123),
 			cert.Meta.Issuer,
@@ -124,7 +125,8 @@ func inspectCertificateHandler(c *cli.Context) error {
 
 	// write certificate information
 	writer := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(writer, "%s:\t%s\n", "Domain", cert.Domain)
+	fmt.Fprintf(writer, "%s:\t%s\n", "ID", cert.ID)
+	fmt.Fprintf(writer, "%s:\t%s\n", "Domains", strings.Join(cert.Domains, ","))
 	fmt.Fprintf(writer, "%s:\t%s\n", "Challenge", string(cert.Challenge))
 	fmt.Fprintf(writer, "%s:\t%s\n", "Since", cert.Meta.Since.Format(time.RFC1123))
 	fmt.Fprintf(writer, "%s:\t%s\n", "Expiry", cert.Meta.Expiry.Format(time.RFC1123))

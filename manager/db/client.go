@@ -17,11 +17,12 @@ const (
 )
 
 var (
-	BucketProjects     = []byte("projects")
-	BucketRoutes       = []byte("routes")
-	BucketConfig       = []byte("config")
-	BucketChallenges   = []byte("challenges")
-	BucketCertificates = []byte("certificates")
+	BucketProjects            = []byte("projects")
+	BucketRoutes              = []byte("routes")
+	BucketConfig              = []byte("config")
+	BucketChallenges          = []byte("challenges")
+	BucketCertificates        = []byte("certificates")
+	BucketCertificateMappings = []byte("certificate-mappings")
 
 	ErrItemNotFound = errors.New("item not found")
 )
@@ -146,13 +147,20 @@ func (c *Client) SaveIngressRoute(route *types.Ingress) error {
 			return err
 		}
 
-		return bucket.Put([]byte(route.Domain), content)
+		// save entry for each domain
+		for _, domain := range route.Domains {
+			if err = bucket.Put([]byte(domain), content); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	})
 }
 
 // GetIngressRoutesByProject returns all ingress routes related to the project.
-func (c *Client) GetIngressRoutesByProject(project string) []types.Ingress {
-	routes := make([]types.Ingress, 0)
+func (c *Client) GetIngressRoutesByProject(project string) map[string]types.Ingress {
+	output := make(map[string]types.Ingress)
 	_ = c.bolt.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(BucketRoutes)
 		if bucket == nil {
@@ -163,12 +171,13 @@ func (c *Client) GetIngressRoutesByProject(project string) []types.Ingress {
 			r := new(types.Ingress)
 			if err := json.Unmarshal(content, r); err == nil && r.TargetProject == project {
 				// append to routes array
-				routes = append(routes, *r)
+				output[string(domain)] = *r
 			}
 			return nil
 		})
 	})
-	return routes
+
+	return output
 }
 
 func (c *Client) RemoveIngressRoute(domain string) error {
@@ -260,12 +269,24 @@ func (c *Client) RemoveAcmeChallenge(domain string, token string, auth string) e
 func (c *Client) GetCertificate(domain string) (*types.Certificate, error) {
 	certificate := new(types.Certificate)
 	err := c.bolt.View(func(tx *bbolt.Tx) error {
-		bucket := tx.Bucket(BucketCertificates)
-		if bucket == nil {
+		certificatesBucket := tx.Bucket(BucketCertificates)
+		if certificatesBucket == nil {
 			return ErrItemNotFound
 		}
 
-		content := bucket.Get([]byte(domain))
+		mappingBucket := tx.Bucket(BucketCertificateMappings)
+		if mappingBucket == nil {
+			return ErrItemNotFound
+		}
+
+		// find certificate ID
+		id := mappingBucket.Get([]byte(domain))
+		if id == nil {
+			return ErrItemNotFound
+		}
+
+		// find certificate value
+		content := certificatesBucket.Get(id)
 		if content == nil {
 			return ErrItemNotFound
 		}
@@ -277,8 +298,8 @@ func (c *Client) GetCertificate(domain string) (*types.Certificate, error) {
 }
 
 // GetAllCertificates will return all certificates with the key being the domain name.
-func (c *Client) GetAllCertificates() map[string]*types.Certificate {
-	output := make(map[string]*types.Certificate)
+func (c *Client) GetAllCertificates() []types.Certificate {
+	output := make([]types.Certificate, 0)
 	_ = c.bolt.View(func(tx *bbolt.Tx) error {
 		bucket := tx.Bucket(BucketCertificates)
 		if bucket == nil {
@@ -291,7 +312,7 @@ func (c *Client) GetAllCertificates() map[string]*types.Certificate {
 				return nil // ignore errors
 			}
 
-			output[string(domain)] = cert
+			output = append(output, *cert)
 			return nil
 		})
 	})
@@ -299,32 +320,41 @@ func (c *Client) GetAllCertificates() map[string]*types.Certificate {
 	return output
 }
 
-// RemoveCertificate removes the certificate from the bucket.
-func (c *Client) RemoveCertificate(domain string) error {
-	return c.bolt.Update(func(tx *bbolt.Tx) error {
-		bucket := tx.Bucket(BucketCertificates)
-		if bucket == nil {
-			return nil
-		}
-
-		return bucket.Delete([]byte(domain))
-	})
-}
-
 // SetCertificate persists the certificate configuration for the domain.
-func (c *Client) SetCertificate(domain string, cert *types.Certificate) error {
+func (c *Client) SetCertificate(cert *types.Certificate) error {
 	return c.bolt.Update(func(tx *bbolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(BucketCertificates)
-		if err != nil {
-			return err
+		{
+			// upload certificate
+			bucket, err := tx.CreateBucketIfNotExists(BucketCertificates)
+			if err != nil {
+				return err
+			}
+
+			content, err := json.Marshal(cert)
+			if err != nil {
+				return err
+			}
+
+			if err = bucket.Put([]byte(cert.ID), content); err != nil {
+				return err
+			}
 		}
 
-		content, err := json.Marshal(cert)
-		if err != nil {
-			return err
+		{
+			// upload mappings
+			bucket, err := tx.CreateBucketIfNotExists(BucketCertificateMappings)
+			if err != nil {
+				return err
+			}
+
+			for _, domain := range cert.Domains {
+				if err = bucket.Put([]byte(domain), []byte(cert.ID)); err != nil {
+					return err
+				}
+			}
 		}
 
-		return bucket.Put([]byte(domain), content)
+		return nil
 	})
 }
 

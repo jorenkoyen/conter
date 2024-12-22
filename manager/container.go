@@ -34,14 +34,14 @@ func (o *Container) DoesProjectExist(name string) bool {
 type ApplyProjectOptions struct {
 	ProjectName string `json:"project_name"`
 	Services    []struct {
-		Name          string              `json:"name"`
-		Source        types.Source        `json:"source"`
-		Environment   map[string]string   `json:"environment"`
-		IngressDomain string              `json:"ingress_domain"`
-		ContainerPort int                 `json:"container_port"`
-		Volumes       []types.Volume      `json:"volumes"`
-		ChallengeType types.ChallengeType `json:"challenge_type"`
-		Quota         types.Quota         `json:"quota"`
+		Name           string              `json:"name"`
+		Source         types.Source        `json:"source"`
+		Environment    map[string]string   `json:"environment"`
+		IngressDomains []string            `json:"ingress_domains"`
+		ContainerPort  int                 `json:"container_port"`
+		Volumes        []types.Volume      `json:"volumes"`
+		ChallengeType  types.ChallengeType `json:"challenge_type"`
+		Quota          types.Quota         `json:"quota"`
 	} `json:"services"`
 }
 
@@ -76,7 +76,7 @@ func (opts *ApplyProjectOptions) validate() *types.ValidationError {
 			err.Append(prefix+"source.uri", "Source URI is required")
 		}
 
-		if service.IngressDomain != "" {
+		if len(service.IngressDomains) > 0 {
 			// indication that service should be exposed
 			if service.ChallengeType != types.ChallengeTypeHTTP && service.ChallengeType != types.ChallengeTypeNone {
 				err.Appendf(prefix+"challenge_type", "Challenge type=%s is not supported", service.ChallengeType)
@@ -146,9 +146,9 @@ func (o *Container) ApplyProject(ctx context.Context, opts *ApplyProjectOptions)
 			Quota:          service.Quota,
 			Volumes:        service.Volumes,
 			Ingress: types.Ingress{
-				Domain:         service.IngressDomain,
+				Domains:        service.IngressDomains,
 				ContainerPort:  service.ContainerPort,
-				TargetEndpoint: "", // will be supplied by docker (if applicable)
+				TargetEndpoint: "", // will be supplied by docker (if exposed)
 				TargetService:  service.Name,
 				TargetProject:  opts.ProjectName,
 				ChallengeType:  service.ChallengeType,
@@ -156,8 +156,8 @@ func (o *Container) ApplyProject(ctx context.Context, opts *ApplyProjectOptions)
 		}
 
 		// append domains for project
-		if service.IngressDomain != "" {
-			domains = append(domains, service.IngressDomain)
+		if len(service.IngressDomains) > 0 {
+			domains = append(domains, service.IngressDomains...)
 		}
 
 		// append container names
@@ -274,7 +274,7 @@ func (o *Container) ApplyService(ctx context.Context, service types.Service, net
 
 	// service is configured to be exposed
 	service.Ingress.TargetEndpoint = container.Endpoint
-	if service.Ingress.Domain != "" {
+	if len(service.Ingress.Domains) > 0 {
 		if container.Endpoint == "" {
 			return nil, errors.New("no endpoint available for exposed service")
 		}
@@ -318,29 +318,30 @@ func (o *Container) RemoveProject(ctx context.Context, project string) error {
 }
 
 const (
-	StateNotAvailable = "not_available"
-	StatusRunning     = "running"
-	StatusStopped     = "stopped"
+	StatusNotAvailable = "not_available"
+	StatusRunning      = "running"
+	StatusStopped      = "stopped"
 )
 
 type Status struct {
-	Service []types.Service
-	states  map[string]string
+	Service  []types.Service
+	statuses map[string]string
 }
 
 // GetState retrieves the current state of the service.
 func (s *Status) GetState(service string) string {
-	current, ok := s.states[service]
+	current, ok := s.statuses[service]
 	if !ok {
-		return StateNotAvailable
+		return StatusNotAvailable
 	}
 
 	return current
 }
 
+// GetProjectStatus will return the actual status of the container running on the system.
 func (o *Container) GetProjectStatus(ctx context.Context, project string) (*Status, error) {
 	status := &Status{
-		states: make(map[string]string),
+		statuses: make(map[string]string),
 	}
 
 	status.Service = o.Database.GetServicesForProject(project)
@@ -354,9 +355,9 @@ func (o *Container) GetProjectStatus(ctx context.Context, project string) (*Stat
 		container := o.Docker.FindContainer(ctx, service.ContainerName)
 		if container != nil {
 			if container.IsRunning() {
-				status.states[service.Name] = StatusRunning
+				status.statuses[service.Name] = StatusRunning
 			} else {
-				status.states[service.Name] = StatusStopped
+				status.statuses[service.Name] = StatusStopped
 			}
 		}
 	}

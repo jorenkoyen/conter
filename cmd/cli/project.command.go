@@ -118,10 +118,16 @@ func applyProjectHandler(c *cli.Context) error {
 		fmt.Fprintf(writer, "    %s:\t%s\n", "Status", s.Status)
 		fmt.Fprintf(writer, "    %s:\t%s\n", "Hash", s.Hash)
 
-		if s.Ingress.Domain != "" {
-			fmt.Fprintf(writer, "    %s:\t%s\n", "Domain", s.Ingress.Domain)
+		if len(s.Ingress.Domains) > 0 {
+			fmt.Fprintf(writer, "    %s:\t%s\n", "Domains", strings.Join(s.Ingress.Domains, ","))
 			fmt.Fprintf(writer, "    %s:\t%s\n", "Endpoint", s.Ingress.InternalEndpoint)
+			fmt.Fprintf(writer, "    %s:\t%s\n", "Challenge", string(s.Ingress.ChallengeType))
 		}
+
+		if len(s.Volumes) > 0 {
+			fmt.Fprintf(writer, "    %s:\t[ %s ]\n", "Volumes", strings.Join(s.Volumes, ","))
+		}
+
 		fmt.Fprintf(writer, "\n")
 	}
 
@@ -175,16 +181,14 @@ func inspectProjectHandler(c *cli.Context) error {
 		fmt.Fprintf(writer, "    %s:\t%s\n", "Status", s.Status)
 		fmt.Fprintf(writer, "    %s:\t%s\n", "Hash", s.Hash)
 
-		if s.Ingress.Domain != "" {
-			fmt.Fprintf(writer, "    %s:\t%s\n", "Domain", s.Ingress.Domain)
+		if len(s.Ingress.Domains) > 0 {
+			fmt.Fprintf(writer, "    %s:\t%s\n", "Domains", strings.Join(s.Ingress.Domains, ","))
 			fmt.Fprintf(writer, "    %s:\t%s\n", "Endpoint", s.Ingress.InternalEndpoint)
+			fmt.Fprintf(writer, "    %s:\t%s\n", "Challenge", string(s.Ingress.ChallengeType))
 		}
 
 		if len(s.Volumes) > 0 {
-			fmt.Fprintf(writer, "    %s:\n", "Volumes")
-			for _, volume := range s.Volumes {
-				fmt.Fprintf(writer, "     - %s\n", volume)
-			}
+			fmt.Fprintf(writer, "    %s:\t[ %s ]\n", "Volumes", strings.Join(s.Volumes, ","))
 		}
 
 		fmt.Fprintf(writer, "\n")

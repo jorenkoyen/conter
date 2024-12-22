@@ -2,8 +2,13 @@ package proxy
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/tls"
-	"errors"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"github.com/jorenkoyen/conter/manager"
 	"github.com/jorenkoyen/conter/manager/types"
@@ -11,9 +16,11 @@ import (
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
 	"io"
+	"math/big"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	defaultLog "log"
 )
@@ -139,11 +146,62 @@ func (s *Server) createProxyTarget(ingress *types.Ingress) (*httputil.ReversePro
 func (s *Server) getCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	cert := s.CertificateManager.Get(hello.ServerName)
 	if cert == nil {
-		return nil, errors.New("no certificate found")
-	}
+		// No certificate found, generate a self-signed certificate
+		selfSignedCert, err := generateSelfSignedCertificate(hello.ServerName)
+		if err != nil {
+			return nil, err
+		}
 
-	// TODO: check if certificate is valid (not expired)
+		s.logger.Warningf("No certificate available, generated temporary self-signed certificate for domain=%s", hello.ServerName)
+		return selfSignedCert, nil
+	}
 
 	s.logger.Tracef("Returning certificcate for domain=%s", hello.ServerName)
 	return cert.X509KeyPair()
+}
+
+// generateSelfSignedCertificate generates a self-signed TLS certificate for the given domain.
+func generateSelfSignedCertificate(domain string) (*tls.Certificate, error) {
+	// Generate private key
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create certificate template
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(time.Now().UnixNano()),
+		Subject: pkix.Name{
+			CommonName: domain,
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(24 * time.Hour), // Valid for 1 day
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		DNSNames:              []string{domain},
+		Issuer:                pkix.Name{CommonName: "conter"},
+	}
+
+	// Create the certificate
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encode certificate and key to PEM format
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	keyDER, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		return nil, err
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+
+	// Load the certificate and key into tls.Certificate
+	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	return &tlsCert, nil
 }

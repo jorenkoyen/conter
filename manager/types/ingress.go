@@ -1,5 +1,10 @@
 package types
 
+import (
+	"fmt"
+	"strings"
+)
+
 type ChallengeType string
 
 const (
@@ -10,12 +15,20 @@ const (
 )
 
 type Ingress struct {
-	Domain        string `json:"domain"`
-	ContainerPort int    `json:"container_port"`
+	Domains       []string `json:"domains"`
+	ContainerPort int      `json:"container_port"`
 
 	TargetEndpoint string `json:"target_endpoint"`
 	TargetService  string `json:"target_service"`
 	TargetProject  string `json:"target_project"`
 
 	ChallengeType ChallengeType `json:"challenge_type"`
+}
+
+func (i *Ingress) String() string {
+	return fmt.Sprintf("Ingress [ domains=%s, project=%s, service=%s ]",
+		strings.Join(i.Domains, ","),
+		i.TargetProject,
+		i.TargetService,
+	)
 }

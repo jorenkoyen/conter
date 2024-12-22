@@ -40,11 +40,23 @@ func (s *Server) HandleProjectApply(w http.ResponseWriter, r *http.Request) erro
 					writer.KeyString("hash", service.Hash)
 					writer.KeyString("status", manager.StatusRunning) // always running when applied
 
-					if service.Ingress.Domain != "" {
+					if service.IsExposed() {
 						writer.Object("ingress", func() {
-							writer.KeyString("domain", service.Ingress.Domain)
 							writer.KeyString("internal", service.Ingress.TargetEndpoint)
 							writer.KeyString("challenge", string(service.Ingress.ChallengeType))
+							writer.Array("domains", func() {
+								for _, domain := range service.Ingress.Domains {
+									writer.Value(domain)
+								}
+							})
+						})
+					}
+
+					if len(service.Volumes) > 0 {
+						writer.Array("volumes", func() {
+							for _, volume := range service.Volumes {
+								writer.Value(volume.Path)
+							}
 						})
 					}
 				})
@@ -95,11 +107,15 @@ func (s *Server) HandleProjectRetrieve(w http.ResponseWriter, r *http.Request) e
 					writer.KeyString("hash", service.Hash)
 					writer.KeyString("status", status.GetState(service.Name))
 
-					if service.Ingress.Domain != "" {
+					if service.IsExposed() {
 						writer.Object("ingress", func() {
-							writer.KeyString("domain", service.Ingress.Domain)
 							writer.KeyString("internal", service.Ingress.TargetEndpoint)
 							writer.KeyString("challenge", string(service.Ingress.ChallengeType))
+							writer.Array("domains", func() {
+								for _, domain := range service.Ingress.Domains {
+									writer.Value(domain)
+								}
+							})
 						})
 					}
 
@@ -149,10 +165,15 @@ func (s *Server) HandleCertificatesRetrieve(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusOK)
 	writer := jsonwriter.New(w)
 	writer.RootArray(func() {
-		for domain, certificate := range certificates {
+		for _, certificate := range certificates {
 			writer.ArrayObject(func() {
-				writer.KeyString("domain", domain)
+				writer.KeyString("id", certificate.ID)
 				writer.KeyString("challenge", string(certificate.ChallengeType))
+				writer.Array("domains", func() {
+					for _, domain := range certificate.Domains {
+						writer.Value(domain)
+					}
+				})
 
 				info, err := certificate.Parse()
 				if err != nil {
@@ -180,7 +201,6 @@ func (s *Server) HandleCertificateRetrieveData(w http.ResponseWriter, r *http.Re
 	domain := r.PathValue("domain")
 	cert := s.CertificateManager.Get(domain)
 	if cert == nil {
-		// TODO: error handling
 		return errors.New("not found")
 	}
 
@@ -188,9 +208,14 @@ func (s *Server) HandleCertificateRetrieveData(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusOK)
 	writer := jsonwriter.New(w)
 	writer.RootObject(func() {
-		writer.KeyString("domain", domain)
+		writer.KeyString("id", cert.ID)
 		writer.KeyString("challenge", string(cert.ChallengeType))
 		writer.KeyString("pem", cert.Certificate)
+		writer.Array("domains", func() {
+			for _, d := range cert.Domains {
+				writer.Value(d)
+			}
+		})
 
 		if info, err := cert.Parse(); err == nil {
 			writer.Object("meta", func() {
@@ -215,7 +240,11 @@ func (s *Server) HandleCertificateRenew(w http.ResponseWriter, r *http.Request) 
 		return errors.New("not found")
 	}
 
-	s.CertificateManager.ChallengeCreate(domain, cert.ChallengeType)
+	err := s.CertificateManager.ChallengeCreate([]string{domain}, cert.ChallengeType)
+	if err != nil {
+		return err
+	}
+
 	w.WriteHeader(http.StatusAccepted)
 	return nil
 }

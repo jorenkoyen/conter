@@ -34,6 +34,11 @@ type Volume struct {
 	Path string `json:"path"`
 }
 
+// IsExposed will return true if the given service has listed ingress domains.
+func (s *Service) IsExposed() bool {
+	return len(s.Ingress.Domains) > 0
+}
+
 // CalculateHash will calculate the configuration hash for the specified service.
 // This hash will be used to compare versions of the service.
 func CalculateHash(s *Service) string {
