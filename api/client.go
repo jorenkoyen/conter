@@ -154,5 +154,5 @@ func (c *Client) ProjectRemove(ctx context.Context, name string) error {
 
 func (c *Client) ExecuteSystemTask(ctx context.Context, task Task) error {
 	endpoint := fmt.Sprintf("/api/system/%s", string(task))
-	return c.do(ctx, http.MethodPost, endpoint, nil, nil)
+	return c.do(ctx, http.MethodGet, endpoint, nil, nil)
 }

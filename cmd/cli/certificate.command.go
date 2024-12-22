@@ -39,7 +39,7 @@ func certificate() *cli.Command {
 				ArgsUsage: "[domain]",
 			},
 			{
-				Name:   "bach",
+				Name:   "batch",
 				Usage:  "Run the certificate management batch command",
 				Action: batchCertificateHandler,
 			},
