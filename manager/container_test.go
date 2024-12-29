@@ -9,13 +9,14 @@ import (
 func createEmptyApplyProjectOptions() *ApplyProjectOptions {
 	opts := new(ApplyProjectOptions)
 	opts.Services = make([]struct {
-		Name          string              `json:"name"`
-		Source        types.Source        `json:"source"`
-		Environment   map[string]string   `json:"environment"`
-		IngressDomain string              `json:"ingress_domain"`
-		ContainerPort int                 `json:"container_port"`
-		ChallengeType types.ChallengeType `json:"challenge_type"`
-		Quota         types.Quota         `json:"quota"`
+		Name           string              `json:"name"`
+		Source         types.Source        `json:"source"`
+		Environment    map[string]string   `json:"environment"`
+		IngressDomains []string            `json:"ingress_domains"`
+		ContainerPort  int                 `json:"container_port"`
+		Volumes        []types.Volume      `json:"volumes"`
+		ChallengeType  types.ChallengeType `json:"challenge_type"`
+		Quota          types.Quota         `json:"quota"`
 	}, 1)
 	return opts
 }
@@ -122,7 +123,7 @@ func TestApplyProjectOptions_validate(t *testing.T) {
 		opts.Services[0].Name = "www"
 		opts.Services[0].Source.Type = "docker"
 		opts.Services[0].Source.URI = "nginx:latest"
-		opts.Services[0].IngressDomain = "www.localtest.me"
+		opts.Services[0].IngressDomains = []string{"www.localtest.me"}
 		opts.Services[0].ChallengeType = types.ChallengeTypeHTTP
 
 		err := opts.validate()
@@ -136,7 +137,7 @@ func TestApplyProjectOptions_validate(t *testing.T) {
 		opts.Services[0].Name = "www"
 		opts.Services[0].Source.Type = "docker"
 		opts.Services[0].Source.URI = "nginx:latest"
-		opts.Services[0].IngressDomain = "www.localtest.me"
+		opts.Services[0].IngressDomains = []string{"www.localtest.me"}
 		opts.Services[0].ChallengeType = types.ChallengeTypeDNS
 		opts.Services[0].ContainerPort = 80
 
@@ -151,7 +152,7 @@ func TestApplyProjectOptions_validate(t *testing.T) {
 		opts.Services[0].Name = "www"
 		opts.Services[0].Source.Type = "docker"
 		opts.Services[0].Source.URI = "nginx:latest"
-		opts.Services[0].IngressDomain = "www.localtest.me"
+		opts.Services[0].IngressDomains = []string{"www.localtest.me"}
 		opts.Services[0].ChallengeType = types.ChallengeTypeTLS
 		opts.Services[0].ContainerPort = 80
 
@@ -166,7 +167,7 @@ func TestApplyProjectOptions_validate(t *testing.T) {
 		opts.Services[0].Name = "www"
 		opts.Services[0].Source.Type = "docker"
 		opts.Services[0].Source.URI = "nginx:latest"
-		opts.Services[0].IngressDomain = "www.localtest.me"
+		opts.Services[0].IngressDomains = []string{"www.localtest.me"}
 		opts.Services[0].ChallengeType = "other"
 		opts.Services[0].ContainerPort = 80
 
@@ -181,7 +182,7 @@ func TestApplyProjectOptions_validate(t *testing.T) {
 		opts.Services[0].Name = "www"
 		opts.Services[0].Source.Type = "docker"
 		opts.Services[0].Source.URI = "nginx:latest"
-		opts.Services[0].IngressDomain = "www.localtest.me"
+		opts.Services[0].IngressDomains = []string{"www.localtest.me"}
 		opts.Services[0].ChallengeType = types.ChallengeTypeHTTP
 		opts.Services[0].ContainerPort = 80
 		opts.Services[0].Quota.MemoryLimit = 64
