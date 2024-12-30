@@ -20,7 +20,7 @@ func (s *Server) HandleAcmeChallenge(w http.ResponseWriter, r *http.Request) {
 	s.logger.Debugf("Handling incoming ACME request for host=%s (token=%s)", host, token)
 	auth, err := s.CertificateManager.Authorize(host, token)
 	if err != nil {
-		s.logger.Errorf("Invalid challenge token(=%s) for host=%s: %v", token, host, err)
+		s.logger.Debugf("Invalid challenge token(=%s) for host=%s: %v", token, host, err)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
