@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/jorenkoyen/conter/manager/db"
 	"github.com/jorenkoyen/conter/manager/docker"
+	"github.com/jorenkoyen/conter/manager/source"
 	"github.com/jorenkoyen/conter/manager/types"
 	"github.com/jorenkoyen/go-logger"
 	"github.com/jorenkoyen/go-logger/log"
@@ -163,15 +164,15 @@ func (o *Container) ApplyProject(ctx context.Context, opts *ApplyProjectOptions)
 		// append container names
 		containers = append(containers, services[i].ContainerName)
 
-		// calculate hash
-		services[i].Hash = types.CalculateHash(&services[i])
-
 		// build or set container image
-		img, err := o.getDockerImageFromSource(ctx, services[i])
+		img, err := source.GetImageFromSource(ctx, services[i])
 		if err != nil {
 			return nil, fmt.Errorf("failed to get image: %w", err)
 		}
 		services[i].ContainerImage = img
+
+		// calculate hash
+		services[i].Hash = types.CalculateHash(&services[i])
 	}
 
 	// 1. create docker network (if not exists)

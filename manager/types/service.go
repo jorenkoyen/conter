@@ -61,6 +61,11 @@ func CalculateHash(s *Service) string {
 		log.Panicf("Failed to hash container port: %v", err)
 	}
 
+	// include 'container_image'
+	if err := encoder.Encode(s.ContainerImage); err != nil {
+		log.Panicf("failed to hash container image: %v", err)
+	}
+
 	// include 'quota'
 	if err := encoder.Encode(s.Quota); err != nil {
 		log.Panicf("Failed to hash quota: %v", err)
