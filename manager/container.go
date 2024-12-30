@@ -69,7 +69,7 @@ func (opts *ApplyProjectOptions) validate() *types.ValidationError {
 		if service.Source.Type == "" {
 			err.Append(prefix+"source.type", "Source type is required")
 
-		} else if service.Source.Type != "docker" {
+		} else if service.Source.Type != source.Docker && service.Source.Type != source.Git {
 			err.Appendf(prefix+"source.type", "Source type=%s is not supported", service.Source.Type)
 		}
 
