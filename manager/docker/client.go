@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/docker/docker/api/types/container"
@@ -10,6 +11,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
@@ -260,7 +262,9 @@ func (c *Client) registryAuthFromOptions(opts map[string]string) string {
 		return ""
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))
+	config := registry.AuthConfig{Username: username, Password: password}
+	encodedJSON, _ := json.Marshal(config)
+	return base64.StdEncoding.EncodeToString(encodedJSON)
 }
 
 // RemoveUnusedContainers will clean up all the containers for the project that are not mentioned in the excluded containers list.
