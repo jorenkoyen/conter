@@ -229,8 +229,13 @@ func (c *Client) PullImageIfNotExists(ctx context.Context, img string, opts map[
 	}
 
 	c.logger.Tracef("Pulling image with name=%s", img)
+	auth := c.registryAuthFromOptions(opts)
+	if auth != "" {
+		c.logger.Tracef("Authenticating with registry for image=%s (auth=%s)", img, auth)
+	}
+
 	out, err := c.docker.ImagePull(ctx, img, image.PullOptions{
-		RegistryAuth: c.registryAuthFromOptions(opts),
+		RegistryAuth: auth,
 	})
 	if err != nil {
 		return err
